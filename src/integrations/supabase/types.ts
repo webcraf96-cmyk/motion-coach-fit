@@ -14,7 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      fitness_profiles: {
+        Row: {
+          age: number | null
+          created_at: string
+          fitness_level: string
+          full_name: string
+          goal: string | null
+          height_cm: number | null
+          id: string
+          streak: number
+          training_days: number
+          updated_at: string
+          user_id: string
+          weight_kg: number | null
+          xp: number
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string
+          fitness_level?: string
+          full_name?: string
+          goal?: string | null
+          height_cm?: number | null
+          id?: string
+          streak?: number
+          training_days?: number
+          updated_at?: string
+          user_id: string
+          weight_kg?: number | null
+          xp?: number
+        }
+        Update: {
+          age?: number | null
+          created_at?: string
+          fitness_level?: string
+          full_name?: string
+          goal?: string | null
+          height_cm?: number | null
+          id?: string
+          streak?: number
+          training_days?: number
+          updated_at?: string
+          user_id?: string
+          weight_kg?: number | null
+          xp?: number
+        }
+        Relationships: []
+      }
+      fitness_workouts: {
+        Row: {
+          calories: number
+          created_at: string
+          duration_seconds: number
+          exercise: string
+          form_score: number
+          id: string
+          mode: string
+          reps: number
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          calories?: number
+          created_at?: string
+          duration_seconds?: number
+          exercise: string
+          form_score?: number
+          id?: string
+          mode?: string
+          reps?: number
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          calories?: number
+          created_at?: string
+          duration_seconds?: number
+          exercise?: string
+          form_score?: number
+          id?: string
+          mode?: string
+          reps?: number
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
