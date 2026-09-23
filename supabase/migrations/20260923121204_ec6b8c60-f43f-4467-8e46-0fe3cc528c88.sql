@@ -1,0 +1,12 @@
+CREATE TABLE public.fitness_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL UNIQUE, full_name text NOT NULL DEFAULT 'Athlete', age integer, height_cm numeric, weight_kg numeric, fitness_level text NOT NULL DEFAULT 'Beginner', goal text, training_days integer NOT NULL DEFAULT 3, xp integer NOT NULL DEFAULT 742, streak integer NOT NULL DEFAULT 7, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.fitness_profiles TO authenticated;
+GRANT ALL ON public.fitness_profiles TO service_role;
+ALTER TABLE public.fitness_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage their own fitness profile" ON public.fitness_profiles FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE TABLE public.fitness_workouts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL, exercise text NOT NULL, reps integer NOT NULL DEFAULT 0, duration_seconds integer NOT NULL DEFAULT 0, calories integer NOT NULL DEFAULT 0, form_score integer NOT NULL DEFAULT 0, xp_earned integer NOT NULL DEFAULT 0, mode text NOT NULL DEFAULT 'demo', created_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.fitness_workouts TO authenticated;
+GRANT ALL ON public.fitness_workouts TO service_role;
+ALTER TABLE public.fitness_workouts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage their own fitness workouts" ON public.fitness_workouts FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE OR REPLACE FUNCTION public.set_fitness_updated_at() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
+CREATE TRIGGER fitness_profiles_updated_at BEFORE UPDATE ON public.fitness_profiles FOR EACH ROW EXECUTE FUNCTION public.set_fitness_updated_at();
