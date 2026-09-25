@@ -76,12 +76,12 @@ function RepverseApp() {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!active || !data.session?.user) return;
       const current = data.session.user;
-      setUser({ id: current.id, email: current.email }); setIsDemo(false); setAuthView(null);
+      setUser(current.email ? { id: current.id, email: current.email } : { id: current.id }); setIsDemo(false); setAuthView(null);
       const { data: p } = await supabase.from("fitness_profiles").select("full_name,xp,streak,goal,fitness_level").eq("user_id", current.id).maybeSingle();
       if (!active) return;
       if (p) setProfile(p as Profile);
       else {
-        const display = current.user_metadata?.full_name || current.email?.split("@")[0] || "Athlete";
+        const display = current.user_metadata?.["full_name"] || current.email?.split("@")[0] || "Athlete";
         const fresh = { full_name: display, xp: 0, streak: 0, fitness_level: "Beginner" };
         setProfile(fresh);
         await supabase.from("fitness_profiles").upsert({ user_id: current.id, ...fresh });
@@ -91,7 +91,7 @@ function RepverseApp() {
     });
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") { setUser(null); setIsDemo(true); setAuthView("welcome"); }
-      if (session?.user) { setUser({ id: session.user.id, email: session.user.email }); setIsDemo(false); setAuthView(null); }
+      if (session?.user) { setUser(session.user.email ? { id: session.user.id, email: session.user.email } : { id: session.user.id }); setIsDemo(false); setAuthView(null); }
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
@@ -124,7 +124,7 @@ function RepverseApp() {
     setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: Math.max(p.streak, 8) }));
     setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
     if (user) {
-      const { error } = await supabase.from("fitness_workouts").insert({ user_id: user.id, exercise: result.exercise, reps: result.reps, duration_seconds: result.duration_seconds, calories: result.calories, form_score: result.form_score, xp_earned: result.xp_earned, mode: result.mode });
+      const { error } = await supabase.from("fitness_workouts").insert({ user_id: user.id, exercise: result.exercise, reps: result.reps, duration_seconds: result.duration_seconds, calories: result.calories, form_score: result.form_score, xp_earned: result.xp_earned, mode: result.mode ?? mode });
       if (error) toast.error("Workout saved on this device", { description: "Cloud sync will be available when the connection returns." });
       await supabase.from("fitness_profiles").update({ xp: profile.xp + result.xp_earned, streak: Math.max(profile.streak, 8) }).eq("user_id", user.id);
     } else {
