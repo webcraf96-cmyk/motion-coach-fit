@@ -262,7 +262,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .brand-mark.large { width: 43px; height: 43px; border-radius: 13px; font-size: 20px; }
 .welcome-head { display: flex; align-items: center; justify-content: space-between; }
 .skip-action,.back-action { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--muted-foreground); font-size: 11px; }
-.welcome-art { position: relative; display: grid; width: min(100%,310px); height: 255px; flex: 0 0 auto; place-items: center; align-self: center; margin-top: 15px; }
+.welcome-art { display: grid; width: min(100%,310px); height: 255px; flex: 0 0 auto; place-items: center; align-self: center; margin-top: 15px; }
+.welcome-logo-image { display: block; width: 100%; height: 100%; object-fit: contain; }
 .orbit { position: absolute; border: 1px solid color-mix(in oklab, var(--brand), transparent 76%); border-radius: 50%; transform: rotate(-27deg); }
 .orbit-one { width: 245px; height: 140px; }.orbit-two { width: 206px; height: 206px; border-color: color-mix(in oklab, var(--accent), transparent 86%); }
 .art-ring { z-index: 1; display: grid; width: 112px; height: 112px; place-items: center; border: 1px solid color-mix(in oklab, var(--brand), transparent 50%); border-radius: 50%; background: radial-gradient(circle, color-mix(in oklab, var(--brand), transparent 86%), var(--panel)); color: var(--brand); box-shadow: 0 0 40px color-mix(in oklab, var(--brand), transparent 86%); }
