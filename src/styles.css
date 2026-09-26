@@ -394,3 +394,35 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms!important; animation-iteration-count: 1!important; scroll-behavior: auto!important; transition-duration: .01ms!important; }
 }
+/* Exercise records: dimensional motion stays decorative; numbers always come from saved sessions. */
+.records-section { margin-top: 23px; }
+.records-heading { display: flex; align-items: end; justify-content: space-between; gap: 8px; margin: 0 1px 12px; }
+.records-heading h2 { margin: 5px 0 0; font: 650 20px/1.2 "Space Grotesk", sans-serif; }
+.records-heading h2 span { color: var(--brand); }
+.records-more { flex: 0 0 auto; gap: 1px; padding-inline: 4px!important; color: var(--brand)!important; font-size: 10px!important; }
+.record-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; perspective: 900px; }
+.record-card { position: relative; isolation: isolate; display: flex; min-width: 0; min-height: 199px; flex-direction: column; overflow: hidden; padding: 11px 9px 8px; border: 1px solid color-mix(in oklab, var(--record-color), transparent 65%); border-radius: 8px; background: linear-gradient(155deg, color-mix(in oklab, var(--record-color), var(--panel) 89%), var(--panel) 62%); box-shadow: 0 9px 0 -5px color-mix(in oklab, var(--record-color), var(--background) 84%), 0 15px 22px -17px var(--record-color); transform-style: preserve-3d; animation: record-rise .7s cubic-bezier(.2,.8,.2,1) both; transition: transform .35s ease, box-shadow .35s ease; }
+.record-card:hover { transform: translateY(-5px) rotateX(5deg); box-shadow: 0 14px 0 -5px color-mix(in oklab, var(--record-color), var(--background) 84%), 0 22px 28px -18px var(--record-color); }
+.record-coral { --record-color: var(--brand); }
+.record-lime { --record-color: var(--accent); }
+.record-amber { --record-color: var(--warning); }
+.record-card::before { content: ""; position: absolute; z-index: -1; width: 100px; height: 100px; top: -48px; right: -44px; border: 1px solid color-mix(in oklab, var(--record-color), transparent 58%); border-radius: 50%; box-shadow: 0 0 0 13px color-mix(in oklab, var(--record-color), transparent 95%), 0 0 0 30px color-mix(in oklab, var(--record-color), transparent 97%); animation: record-orbit 10s linear infinite; }
+.record-card-top { display: flex; align-items: start; justify-content: space-between; gap: 3px; }
+.record-emblem { display: grid; width: 35px; height: 35px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in oklab, var(--record-color), transparent 55%); border-radius: 7px; background: color-mix(in oklab, var(--record-color), transparent 83%); color: var(--record-color); box-shadow: 0 5px 0 -2px color-mix(in oklab, var(--record-color), transparent 75%); transform: rotate(-7deg); animation: emblem-float 3.2s ease-in-out infinite; }
+.record-emblem span { font: 800 11px "Space Grotesk", sans-serif; }
+.record-index { color: var(--muted-foreground); font-size: 7px; white-space: nowrap; }
+.record-card h3 { margin: 14px 0 12px; font: 650 12px/1.1 "Space Grotesk", sans-serif; white-space: nowrap; }
+.record-numbers { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; }
+.record-numbers > div { display: flex; flex-direction: column; min-width: 0; }
+.record-numbers strong { color: var(--record-color); font: 700 21px/1 "Space Grotesk", sans-serif; font-variant-numeric: tabular-nums; }
+.record-numbers span { margin-top: 4px; color: var(--muted-foreground); font-size: 7px; white-space: nowrap; }
+.record-numbers > div + div strong { color: var(--foreground); font-size: 14px; }
+.record-bottom { display: flex; align-items: center; justify-content: space-between; gap: 2px; margin-top: 12px; padding-top: 6px; border-top: 1px solid color-mix(in oklab, var(--record-color), transparent 83%); }
+.record-bottom > span { overflow: hidden; color: var(--muted-foreground); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.record-go { width: 25px!important; height: 25px!important; min-width: 25px; padding: 0!important; border-radius: 50%!important; background: color-mix(in oklab, var(--record-color), transparent 84%)!important; color: var(--record-color)!important; }
+.records-compact { margin-top: 20px; }
+@keyframes record-rise { from { opacity: 0; transform: translateY(20px) rotateX(-12deg); } to { opacity: 1; transform: translateY(0) rotateX(0); } }
+@keyframes record-orbit { to { transform: rotate(360deg); } }
+@keyframes emblem-float { 50% { transform: translateY(-4px) rotate(2deg); } }
+@media (max-width: 359px) { .record-list { gap: 5px; } .record-card { padding-inline: 7px; } .record-index { display: none; } }
+@media (prefers-reduced-motion: reduce) { .record-card, .record-emblem, .record-card::before { animation: none!important; transition: none!important; } }

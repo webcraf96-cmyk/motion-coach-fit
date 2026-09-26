@@ -1,0 +1,3 @@
+- [x] Show individual squat, push-up, and sit-up totals and best sessions from saved workouts.
+- [x] Add dimensional movement to exercise records while respecting reduced-motion preferences.
+- [ ] Verify mobile layout and the demo workout-to-record flow.
