@@ -1,5 +1,5 @@
 - [x] Show individual squat, push-up, and sit-up totals and best sessions from saved workouts.
 - [x] Add dimensional movement to exercise records while respecting reduced-motion preferences.
 - [x] Verify mobile layout and the demo workout-to-record flow.
-- [ ] Add kinetic dimensional motion to opening, login, dashboard, workout, progress, awards, and settings screens.
-- [ ] Verify demo workout and mobile layouts with motion and reduced-motion settings.
+- [x] Add kinetic dimensional motion to opening, login, dashboard, workout, progress, awards, and settings screens.
+- [x] Verify demo workout and mobile layouts with motion and reduced-motion settings.
