@@ -426,3 +426,103 @@ button { -webkit-tap-highlight-color: transparent; }
 @keyframes emblem-float { 50% { transform: translateY(-4px) rotate(2deg); } }
 @media (max-width: 359px) { .record-list { gap: 5px; } .record-card { padding-inline: 7px; } .record-index { display: none; } }
 @media (prefers-reduced-motion: reduce) { .record-card, .record-emblem, .record-card::before { animation: none!important; transition: none!important; } }
+
+/* Kinetic physical depth: one motion vocabulary across every screen. */
+@keyframes rise-depth { from { opacity: 0; transform: perspective(900px) translateY(24px) rotateX(7deg) scale(.975); } to { opacity: 1; transform: perspective(900px) translateY(0) rotateX(0) scale(1); } }
+@keyframes reveal-copy { from { opacity: 0; transform: translateY(16px); filter: blur(5px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+@keyframes logo-arrive { from { opacity: 0; transform: translateY(-25px) rotateX(-25deg) scale(.82); filter: brightness(.55); } to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); filter: brightness(1); } }
+@keyframes logo-hover { 50% { transform: translateY(-9px) rotateY(5deg) rotateX(3deg); } }
+@keyframes plate-drift { 50% { transform: translate3d(12px,-19px,0) rotate(23deg) rotateY(17deg); } }
+@keyframes plate-drift-reverse { 50% { transform: translate3d(-15px,15px,0) rotate(-26deg) rotateX(14deg); } }
+@keyframes trace-sweep { from { transform: translateX(-130%) skewX(-18deg); } to { transform: translateX(430%) skewX(-18deg); } }
+@keyframes score-shine { 50% { filter: brightness(1.3) drop-shadow(0 0 12px color-mix(in oklab, var(--brand), transparent 60%)); } }
+@keyframes icon-sway { 50% { transform: rotate(-12deg) translateY(-3px); } }
+@keyframes rep-hit { 0% { transform: scale(.78) translateY(10px); opacity: .5; } 65% { transform: scale(1.12) translateY(-3px); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes ring-enter { from { transform: rotate(-100deg) scale(.8); opacity: .3; } to { transform: rotate(0) scale(1); opacity: 1; } }
+@keyframes progress-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes line-scan { 50% { transform: translateY(170px); opacity: .3; } }
+@keyframes reward-radiate { from { box-shadow: 0 0 0 0 color-mix(in oklab, var(--warning), transparent 55%); } to { box-shadow: 0 0 0 24px transparent; } }
+
+.auth-screen { position: relative; isolation: isolate; overflow: hidden; }
+.auth-screen > :not(.auth-atmosphere) { position: relative; z-index: 1; }
+.auth-atmosphere { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; perspective: 900px; background: radial-gradient(ellipse at 100% 0%, color-mix(in oklab, var(--brand), transparent 91%), transparent 49%), radial-gradient(ellipse at 0% 85%, color-mix(in oklab, var(--accent), transparent 96%), transparent 50%); }
+.atmosphere-grid { position: absolute; inset: -40%; opacity: .35; background-image: linear-gradient(color-mix(in oklab, var(--foreground), transparent 97%) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--foreground), transparent 97%) 1px, transparent 1px); background-size: 33px 33px; transform: rotate(-15deg) scale(1.4); mask-image: linear-gradient(transparent 14%, black 40%, transparent 78%); }
+.atmosphere-plate { position: absolute; display: block; border: 1px solid color-mix(in oklab, var(--foreground), transparent 89%); background: linear-gradient(135deg, color-mix(in oklab, var(--foreground), transparent 95%), transparent 62%); box-shadow: 8px 22px 28px color-mix(in oklab, var(--background), transparent 25%), inset 1px 1px color-mix(in oklab, var(--foreground), transparent 93%); backdrop-filter: blur(5px); animation: plate-drift 9s ease-in-out infinite; }
+.atmosphere-plate-one { top: 12%; right: -43px; width: 140px; height: 215px; border-radius: 8px; transform: rotate(23deg); }
+.atmosphere-plate-two { top: 43%; left: -61px; width: 145px; height: 76px; border-color: color-mix(in oklab, var(--accent), transparent 87%); border-radius: 6px; transform: rotate(-26deg); animation: plate-drift-reverse 11s ease-in-out infinite; }
+.atmosphere-plate-three { right: 8%; bottom: 17%; width: 52px; height: 52px; border-color: color-mix(in oklab, var(--brand), transparent 80%); border-radius: 7px; transform: rotate(23deg); animation-duration: 13s; }
+.atmosphere-trace { position: absolute; top: 37%; left: -30%; width: 42%; height: 1px; background: linear-gradient(90deg,transparent,var(--accent),transparent); opacity: .35; animation: trace-sweep 8s linear infinite; }
+.welcome-head { animation: reveal-copy .55s ease-out both; }
+.welcome-art { position: relative; isolation: isolate; perspective: 1100px; animation: logo-arrive .85s cubic-bezier(.2,.75,.2,1) .1s both; }
+.welcome-art::before { position: absolute; z-index: -1; inset: 13% 4%; content: ""; background: color-mix(in oklab, var(--accent), transparent 85%); filter: blur(43px); animation: score-shine 5s ease-in-out infinite; }
+.welcome-art::after { position: absolute; right: 20%; bottom: -8px; left: 20%; height: 13px; border-radius: 50%; content: ""; background: color-mix(in oklab, var(--background), transparent 8%); filter: blur(10px); }
+.welcome-logo-image { transform-style: preserve-3d; filter: drop-shadow(0 18px 22px color-mix(in oklab, var(--background), transparent 18%)); animation: logo-hover 7s ease-in-out 1.2s infinite; }
+.welcome-copy > .eyebrow { display: block; animation: reveal-copy .55s ease-out .35s both; }
+.welcome-copy h1 { animation: reveal-copy .65s ease-out .45s both; }
+.welcome-copy > p { animation: reveal-copy .55s ease-out .55s both; }
+.motivation-prompt { animation: rise-depth .65s cubic-bezier(.2,.8,.2,1) .65s both; }
+.welcome-actions > .primary-action { animation: rise-depth .6s ease-out .72s both; }
+.welcome-actions > .secondary-action { animation: rise-depth .6s ease-out .81s both; }
+.welcome-actions > .social-row { animation: rise-depth .6s ease-out .9s both; }
+.welcome-actions > .demo-link, .welcome-actions > .privacy-foot { animation: reveal-copy .6s ease-out 1s both; }
+.auth-screen:not(.welcome-screen) > .auth-logo, .auth-screen:not(.welcome-screen) > .back-action { animation: reveal-copy .55s ease-out both; }
+.auth-content > * { animation: reveal-copy .5s ease-out both; }
+.auth-content > :nth-child(2) { animation-delay: 70ms; }.auth-content > :nth-child(3) { animation-delay: 120ms; }.auth-content > :nth-child(4) { animation-delay: 170ms; }.auth-content > :nth-child(5) { animation-delay: 220ms; }.auth-content > :nth-child(n+6) { animation-delay: 280ms; }
+.auth-screen .primary-action, .auth-screen .secondary-action, .auth-screen .social-action, .goal-choice { box-shadow: 0 5px 0 -2px color-mix(in oklab, var(--brand), var(--background) 80%), inset 0 1px color-mix(in oklab, var(--foreground), transparent 87%); transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
+.auth-screen .primary-action:active, .auth-screen .secondary-action:active, .auth-screen .social-action:active, .goal-choice:active { transform: translateY(3px) scale(.985); box-shadow: 0 1px 0 -1px var(--panel-line); }
+.goal-choice { width: 100%; white-space: normal; }
+.skip-action { min-height: 35px; padding-inline: 6px!important; }
+.demo-link { height: auto!important; padding: 0!important; }
+
+.page-content { perspective: 1100px; }
+.screen-enter { animation: screen-in .36s ease-out both; }
+.motion-reveal.motion-visible { animation: rise-depth .65s cubic-bezier(.2,.8,.2,1) both; }
+.exercise-card.motion-visible, .badge-card.motion-visible, .history-row.motion-visible, .settings-group.motion-visible { animation-duration: .5s; }
+.dashboard-grid > :nth-child(2), .exercise-list > :nth-child(2), .badge-list > :nth-child(2) { animation-delay: 70ms; }
+.dashboard-grid > :nth-child(3), .exercise-list > :nth-child(3), .badge-list > :nth-child(3) { animation-delay: 120ms; }
+.dashboard-grid > :nth-child(4), .exercise-list > :nth-child(4), .badge-list > :nth-child(4) { animation-delay: 170ms; }
+.score-panel, .mini-panel, .content-section, .workout-feature, .exercise-card, .badge-card, .medal-progress, .profile-panel, .plan-card { box-shadow: 0 8px 0 -5px color-mix(in oklab, var(--foreground), transparent 96%), 0 16px 25px -19px var(--background), inset 0 1px color-mix(in oklab, var(--foreground), transparent 95%); transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease; }
+@media (hover: hover) { .score-panel:hover, .mini-panel:hover, .content-section:hover, .workout-feature:hover, .exercise-card:hover, .badge-card:hover, .medal-progress:hover, .profile-panel:hover, .plan-card:hover { transform: translateY(-3px) rotateX(2deg); box-shadow: 0 12px 0 -6px color-mix(in oklab, var(--brand), transparent 92%), 0 20px 30px -20px var(--background), inset 0 1px color-mix(in oklab, var(--foreground), transparent 91%); } }
+.score-ring { animation: ring-enter .9s cubic-bezier(.2,.8,.2,1) .15s both, score-shine 5s ease-in-out 1.3s infinite; box-shadow: 0 11px 0 -7px color-mix(in oklab, var(--brand), transparent 70%); }
+.track i { transform-origin: left; animation: progress-grow .8s cubic-bezier(.2,.8,.2,1) .22s both; }
+.streak-number svg, .result-streak svg { animation: icon-sway 2.5s ease-in-out infinite; transform-origin: bottom center; }
+.reward-chip, .level-chip { animation: score-shine 4s ease-in-out infinite; }
+.quick-item .exercise-glyph, .exercise-card .exercise-glyph, .settings-icon, .badge-icon, .feature-mark, .coach-icon { transition: transform .3s ease, box-shadow .3s ease; }
+.quick-item:hover .exercise-glyph, .exercise-card:hover .exercise-glyph, .settings-row:hover .settings-icon, .badge-card:hover .badge-icon, .workout-feature:hover .feature-mark, .coach-card:hover .coach-icon { transform: translateY(-3px) rotate(-6deg); box-shadow: 0 6px 0 -3px color-mix(in oklab, var(--brand), transparent 60%); }
+.nav-icon { transition: transform .28s cubic-bezier(.2,.8,.2,1), background .28s ease; }
+.nav-item:active .nav-icon { transform: scale(.8) translateY(2px); }
+.nav-item.active .nav-icon { box-shadow: 0 5px 0 -3px color-mix(in oklab, var(--brand), transparent 55%); }
+.tall-bar { transform-origin: bottom; animation: grow-bar .7s cubic-bezier(.15,.8,.25,1) both; }
+.tall-day:nth-child(2) .tall-bar, .activity-day:nth-child(2) .activity-bar { animation-delay: 75ms; }
+.tall-day:nth-child(3) .tall-bar, .activity-day:nth-child(3) .activity-bar { animation-delay: 150ms; }
+.tall-day:nth-child(4) .tall-bar, .activity-day:nth-child(4) .activity-bar { animation-delay: 225ms; }
+.tall-day:nth-child(5) .tall-bar, .activity-day:nth-child(5) .activity-bar { animation-delay: 300ms; }
+.tall-day:nth-child(6) .tall-bar, .activity-day:nth-child(6) .activity-bar { animation-delay: 375ms; }
+.tall-day:nth-child(7) .tall-bar, .activity-day:nth-child(7) .activity-bar { animation-delay: 450ms; }
+.period-active, .filter-pill.active { box-shadow: inset 0 1px color-mix(in oklab, var(--foreground), transparent 87%), 0 3px 10px color-mix(in oklab, var(--background), transparent 45%); }
+.filter-pill, .period-control button { transition: transform .2s ease, background .25s ease, box-shadow .25s ease; }
+.filter-pill:active, .period-control button:active, .settings-row:active { transform: scale(.97); }
+.plan-card.featured::before { position: absolute; inset: 0; content: ""; pointer-events: none; background: linear-gradient(110deg, transparent 30%, color-mix(in oklab, var(--foreground), transparent 96%) 50%, transparent 70%); transform: translateX(-130%); animation: trace-sweep 8s ease-in-out 2s infinite; }
+.plan-card > * { position: relative; }
+.plan-card.featured .recommended { position: absolute; }
+.plan-top > svg { animation: icon-sway 4s ease-in-out infinite; }
+.session-header { animation: reveal-copy .4s ease-out both; }
+.camera-stage { animation: rise-depth .65s cubic-bezier(.2,.8,.2,1) .08s both; box-shadow: 0 9px 0 -5px color-mix(in oklab, var(--brand), transparent 78%); }
+.demo-camera-art::after { position: absolute; top: 0; right: 0; left: 0; height: 2px; content: ""; background: linear-gradient(90deg,transparent,var(--accent),transparent); opacity: .4; box-shadow: 0 0 12px var(--accent); animation: line-scan 4s ease-in-out infinite alternate; }
+.camera-grid { animation: plate-drift-reverse 12s ease-in-out infinite; }
+.demo-camera-art .figure-head { animation: icon-sway 3s ease-in-out infinite; }
+.session-feedback, .session-status { animation: reveal-copy .5s ease-out .2s both; }
+.rep-display > span { animation: rep-hit .32s cubic-bezier(.2,.8,.2,1) both; }
+.session-stats > div, .result-stats > div { animation: rise-depth .5s ease-out both; }
+.session-stats > div:nth-child(2), .result-stats > div:nth-child(2) { animation-delay: 80ms; }
+.session-stats > div:nth-child(3), .result-stats > div:nth-child(3) { animation-delay: 160ms; }
+.result-burst { animation: trophy-pop .45s cubic-bezier(.2,.8,.25,1.2) both, reward-radiate 2s ease-out .6s 2; }
+.result-xp { animation: rep-hit .6s cubic-bezier(.2,.8,.2,1) .25s both; }
+.result-screen h1, .result-screen > .eyebrow, .result-exercise { animation: reveal-copy .6s ease-out .2s both; }
+.result-streak, .result-note, .result-screen > .primary-action, .result-actions { animation: reveal-copy .55s ease-out .4s both; }
+.bottom-sheet, .confirm-sheet { animation: sheet-up .38s cubic-bezier(.18,.85,.2,1) both; box-shadow: 0 -17px 42px color-mix(in oklab, var(--background), transparent 25%); }
+@media (prefers-reduced-motion: reduce) {
+  .motion-reveal.motion-visible, .auth-atmosphere *, .welcome-art, .welcome-logo-image, .welcome-art::before, .score-ring, .track i, .rep-display > span, .result-burst { animation: none!important; transform: none!important; filter: none!important; }
+  .score-panel, .mini-panel, .content-section, .workout-feature, .exercise-card, .badge-card, .medal-progress, .profile-panel, .plan-card, .record-card { transition: none!important; }
+  .score-panel:hover, .mini-panel:hover, .content-section:hover, .workout-feature:hover, .exercise-card:hover, .badge-card:hover, .medal-progress:hover, .profile-panel:hover, .plan-card:hover, .record-card:hover { transform: none!important; }
+}
