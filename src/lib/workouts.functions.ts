@@ -13,12 +13,17 @@ export const recordWorkout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => workoutInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase.rpc("record_fitness_workout", {
-      _exercise: data.exercise,
-      _reps: data.reps,
-      _duration_seconds: data.duration_seconds,
-      _mode: data.mode,
-    });
-    if (error || !rows?.[0]) throw new Error("Workout could not be saved securely.");
-    return rows[0];
+    const { data: workout, error } = await context.supabase
+      .from("fitness_workouts")
+      .insert({ user_id: context.userId, ...data })
+      .select("id,user_id,exercise,reps,duration_seconds,calories,form_score,xp_earned,mode,created_at")
+      .single();
+    if (error || !workout) throw new Error("Workout could not be saved securely.");
+    const { data: profile, error: profileError } = await context.supabase
+      .from("fitness_profiles")
+      .select("xp,streak")
+      .eq("user_id", context.userId)
+      .single();
+    if (profileError || !profile) throw new Error("Workout was saved, but progress could not be refreshed.");
+    return { ...workout, profile_xp: profile.xp, profile_streak: profile.streak };
   });
