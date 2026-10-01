@@ -182,7 +182,7 @@ function RepclashApp() {
   const googleLogin = async (provider: "google" | "apple") => { const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin }); if (result.error) toast.error(result.error.message); };
   const saveOnboarding = async () => {
     if (!user) { setAuthView(null); return; }
-    const { error } = await supabase.from("fitness_profiles").upsert({ user_id: user.id, full_name: fullName || profile.full_name, goal: selectedGoal });
+    const { error } = await supabase.from("fitness_profiles").update({ full_name: fullName || profile.full_name, goal: selectedGoal }).eq("user_id", user.id);
     if (error) toast.error("Your profile couldn’t be saved yet."); else { setProfile((p) => ({ ...p, full_name: fullName || p.full_name, goal: selectedGoal })); setAuthView(null); }
   };
   const signOut = async () => { await supabase.auth.signOut(); setTab("Home"); };
