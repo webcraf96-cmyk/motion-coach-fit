@@ -3,3 +3,6 @@
 - [x] Verify mobile layout and the demo workout-to-record flow.
 - [x] Add kinetic dimensional motion to opening, login, dashboard, workout, progress, awards, and settings screens.
 - [x] Verify demo workout and mobile layouts with motion and reduced-motion settings.
+- [ ] Reduce the opening logo and remove the green rectangular glow while preserving the background.
+- [ ] Give changing progress numbers a rep-like response and subtly refine the app surfaces.
+- [ ] Verify opening, login, and demo-to-progress flow on a small phone.
