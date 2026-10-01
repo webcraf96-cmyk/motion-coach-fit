@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Activity, ArrowLeft, Award, BarChart3, Bell, Check, ChevronRight, CircleHelp,
   Clock3, Dumbbell, Flame, Heart, History, Home, LockKeyhole, Mail, Menu, Pause,
@@ -11,6 +12,7 @@ import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { recordWorkout } from "@/lib/workouts.functions";
 import repclashLogo from "@/assets/repclash-logo.jpg.asset.json";
 
 type Exercise = { name: string; muscles: string; best: string; difficulty: string; glyph: string; };
@@ -53,6 +55,7 @@ export const Route = createFileRoute("/")({
 });
 
 function RepclashApp() {
+  const saveWorkout = useServerFn(recordWorkout);
   const [tab, setTab] = useState<Tab>("Home");
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [profile, setProfile] = useState<Profile>({ full_name: "Maya", xp: 742, streak: 7, fitness_level: "Athlete" });
@@ -94,7 +97,7 @@ function RepclashApp() {
         const display = current.user_metadata?.["full_name"] || current.email?.split("@")[0] || "Athlete";
         const fresh = { full_name: display, xp: 0, streak: 0, fitness_level: "Beginner" };
         setProfile(fresh);
-        await supabase.from("fitness_profiles").upsert({ user_id: current.id, ...fresh });
+        await supabase.from("fitness_profiles").upsert({ user_id: current.id, full_name: display, fitness_level: "Beginner" });
       }
       const history: Workout[] = [];
       for (let offset = 0; active; offset += 500) {
@@ -148,15 +151,21 @@ function RepclashApp() {
     } catch { toast.error("Camera access wasn’t available", { description: "You can still train in Demo mode without camera access." }); }
   };
   const finishWorkout = async () => {
-    const result: Workout = { id: crypto.randomUUID(), exercise, reps: exercise === "Plank" ? 0 : reps, duration_seconds: elapsed, calories: Math.max(12, Math.round(elapsed * 0.19)), form_score: mode === "demo" ? 92 : 0, xp_earned: Math.max(30, Math.round(elapsed * 0.55) + reps * 2), created_at: new Date().toISOString(), mode };
+    let result: Workout = { id: crypto.randomUUID(), exercise, reps: exercise === "Plank" ? 0 : reps, duration_seconds: Math.max(1, elapsed), calories: Math.max(12, Math.round(elapsed * 0.19)), form_score: mode === "demo" ? 92 : 0, xp_earned: Math.max(30, Math.round(elapsed * 0.55) + reps * 2), created_at: new Date().toISOString(), mode };
     setWorkoutOpen(false); setConfirmEnd(false); setDone(result); setLiveCamera(false); mediaRef.current?.getTracks().forEach((track) => track.stop()); mediaRef.current = null;
-    setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: Math.max(p.streak, 8) }));
-    setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
     if (user) {
-      const { error } = await supabase.from("fitness_workouts").insert({ user_id: user.id, exercise: result.exercise, reps: result.reps, duration_seconds: result.duration_seconds, calories: result.calories, form_score: result.form_score, xp_earned: result.xp_earned, mode: result.mode ?? mode });
-      if (error) toast.error("Workout saved on this device", { description: "Cloud sync will be available when the connection returns." });
-      await supabase.from("fitness_profiles").update({ xp: profile.xp + result.xp_earned, streak: Math.max(profile.streak, 8) }).eq("user_id", user.id);
+      try {
+        const saved = await saveWorkout({ data: { exercise, reps: result.reps, duration_seconds: result.duration_seconds, mode } });
+        result = { id: saved.id, exercise: saved.exercise, reps: saved.reps, duration_seconds: saved.duration_seconds, calories: saved.calories, form_score: saved.form_score, xp_earned: saved.xp_earned, created_at: saved.created_at, mode: saved.mode };
+        setProfile((p) => ({ ...p, xp: saved.profile_xp, streak: saved.profile_streak }));
+        setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
+        setDone(result);
+      } catch {
+        toast.error("Workout couldn’t be saved", { description: "Please try again when your connection is available." });
+      }
     } else {
+      setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: Math.max(p.streak, 8) }));
+      setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
       try { localStorage.setItem("repverse-demo-workouts", JSON.stringify([result, ...JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]")])); } catch { /* demo remains usable when storage is full */ }
     }
   };
@@ -173,7 +182,7 @@ function RepclashApp() {
   const googleLogin = async (provider: "google" | "apple") => { const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin }); if (result.error) toast.error(result.error.message); };
   const saveOnboarding = async () => {
     if (!user) { setAuthView(null); return; }
-    const { error } = await supabase.from("fitness_profiles").upsert({ user_id: user.id, full_name: fullName || profile.full_name, goal: selectedGoal, xp: 0, streak: 0 });
+    const { error } = await supabase.from("fitness_profiles").upsert({ user_id: user.id, full_name: fullName || profile.full_name, goal: selectedGoal });
     if (error) toast.error("Your profile couldn’t be saved yet."); else { setProfile((p) => ({ ...p, full_name: fullName || p.full_name, goal: selectedGoal })); setAuthView(null); }
   };
   const signOut = async () => { await supabase.auth.signOut(); setTab("Home"); };
