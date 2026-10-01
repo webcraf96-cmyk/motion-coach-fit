@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import {
   Activity, ArrowLeft, Award, BarChart3, Bell, Check, ChevronRight, CircleHelp,
   Clock3, Dumbbell, Flame, Heart, History, Home, LockKeyhole, Mail, Menu, Pause,
@@ -55,7 +54,6 @@ export const Route = createFileRoute("/")({
 });
 
 function RepclashApp() {
-  const saveWorkout = useServerFn(recordWorkout);
   const [tab, setTab] = useState<Tab>("Home");
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [profile, setProfile] = useState<Profile>({ full_name: "Maya", xp: 742, streak: 7, fitness_level: "Athlete" });
@@ -155,7 +153,7 @@ function RepclashApp() {
     setWorkoutOpen(false); setConfirmEnd(false); setDone(result); setLiveCamera(false); mediaRef.current?.getTracks().forEach((track) => track.stop()); mediaRef.current = null;
     if (user) {
       try {
-        const saved = await saveWorkout({ data: { exercise, reps: result.reps, duration_seconds: result.duration_seconds, mode } });
+        const saved = await recordWorkout({ data: { exercise, reps: result.reps, duration_seconds: result.duration_seconds, mode } });
         result = { id: saved.id, exercise: saved.exercise, reps: saved.reps, duration_seconds: saved.duration_seconds, calories: saved.calories, form_score: saved.form_score, xp_earned: saved.xp_earned, created_at: saved.created_at, mode: saved.mode };
         setProfile((p) => ({ ...p, xp: saved.profile_xp, streak: saved.profile_streak }));
         setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
