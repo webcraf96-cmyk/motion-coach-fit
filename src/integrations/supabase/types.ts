@@ -106,7 +106,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      record_fitness_workout: {
+        Args: {
+          _duration_seconds: number
+          _exercise: string
+          _mode: string
+          _reps: number
+          _user_id: string
+        }
+        Returns: {
+          calories: number
+          created_at: string
+          duration_seconds: number
+          exercise: string
+          form_score: number
+          id: string
+          mode: string
+          profile_streak: number
+          profile_xp: number
+          reps: number
+          user_id: string
+          xp_earned: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
