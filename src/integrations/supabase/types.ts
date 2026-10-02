@@ -23,6 +23,7 @@ export type Database = {
           goal: string | null
           height_cm: number | null
           id: string
+          preferences: Json
           streak: number
           training_days: number
           updated_at: string
@@ -38,6 +39,7 @@ export type Database = {
           goal?: string | null
           height_cm?: number | null
           id?: string
+          preferences?: Json
           streak?: number
           training_days?: number
           updated_at?: string
@@ -53,6 +55,7 @@ export type Database = {
           goal?: string | null
           height_cm?: number | null
           id?: string
+          preferences?: Json
           streak?: number
           training_days?: number
           updated_at?: string
