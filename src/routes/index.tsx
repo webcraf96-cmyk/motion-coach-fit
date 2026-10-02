@@ -103,6 +103,8 @@ function RepclashApp() {
       if (profileError) toast.error("Your profile couldn’t sync", { description: "Check your connection and try again." });
       if (accountProfile) {
         setProfile(accountProfile as Profile);
+        setFullName(accountProfile.full_name);
+        if (accountProfile.goal) setSelectedGoal(accountProfile.goal);
         setTrainingDays(accountProfile.training_days);
         const preferences = accountProfile.preferences as Partial<typeof settings> | null;
         if (preferences) setSettings((currentSettings) => ({ ...currentSettings, ...preferences }));
@@ -182,12 +184,20 @@ function RepclashApp() {
         toast.error("Workout couldn’t be saved", { description: "Please try again when your connection is available." });
       }
     } else {
-      setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: Math.max(p.streak, 8) }));
+      setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: getWorkoutStreak([result, ...workouts]) }));
       setWorkouts((items) => [result, ...items]);
       try { localStorage.setItem("repverse-demo-workouts", JSON.stringify([result, ...JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]")])); } catch { /* demo remains usable when storage is full */ }
     }
   };
-  useEffect(() => { try { const cached = JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]") as Workout[]; if (cached.length && isDemo) setWorkouts(cached); } catch { /* ignore invalid demo cache */ } }, [isDemo]);
+  useEffect(() => {
+    if (!isDemo) return;
+    try {
+      const cached = JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]") as Workout[];
+      if (!cached.length) return;
+      setWorkouts(cached);
+      setProfile((current) => ({ ...current, xp: cached.reduce((sum, workout) => sum + workout.xp_earned, 0), streak: getWorkoutStreak(cached) }));
+    } catch { /* ignore invalid demo cache */ }
+  }, [isDemo]);
   const signIn = async (create: boolean) => {
     if (!authEmail || !authPassword) { toast.error("Add your email and password to continue."); return; }
     setAuthBusy(true);
@@ -195,7 +205,8 @@ function RepclashApp() {
     setAuthBusy(false);
     if (result.error) { toast.error(result.error.message); return; }
     if (create && !result.data.session) { toast.success("Check your inbox to confirm your email."); setAuthView("login"); return; }
-    if (create) setAuthView("onboarding"); else { setAuthView(null); setIsDemo(false); }
+    if (create) { setFullName(fullName || result.data.user?.user_metadata?.["full_name"] || ""); setAuthView("onboarding"); }
+    else { setAuthView(null); setIsDemo(false); }
   };
   const googleLogin = async (provider: "google" | "apple") => { const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin }); if (result.error) toast.error(result.error.message); };
   const saveOnboarding = async () => {
@@ -233,7 +244,7 @@ function RepclashApp() {
         <BottomNav active={tab} onChange={setTab} />
       </>}
       {workoutOpen && <WorkoutSession exercise={exercise} reps={reps} elapsed={elapsed} mode={mode} liveCamera={liveCamera} paused={paused} muted={muted} videoRef={cameraRef} onPause={() => setPaused((p) => !p)} onRep={() => exercise !== "Plank" && setReps((n) => n + 1)} onEnd={() => setConfirmEnd(true)} onMute={() => setMuted((m) => !m)} onMode={() => { setMode("demo"); setLiveCamera(false); mediaRef.current?.getTracks().forEach((track) => track.stop()); mediaRef.current = null; toast.message("Demo mode enabled", { description: "Reps are simulated; form analysis is not active." }); }} />}
-      {done && <WorkoutResult result={done} onSave={() => { setDone(null); setTab("Home"); toast.success("Workout saved"); }} onAgain={() => startWorkout(done.exercise)} onClose={() => { setDone(null); setTab("Home"); }} />}
+      {done && <WorkoutResult result={done} streak={profile.streak} onSave={() => { setDone(null); setTab("Home"); toast.success("Workout saved"); }} onAgain={() => startWorkout(done.exercise)} onClose={() => { setDone(null); setTab("Home"); }} />}
       {showCameraExplain && <Sheet onClose={() => setShowCameraExplain(false)}><div className="sheet-handle"/><div className="permission-icon"><Camera size={23}/></div><h2>Camera stays with you.</h2><p className="sheet-copy">REPCLASH uses your camera preview for movement monitoring. Your video is not uploaded. Live pose analysis is not enabled in this demo; choose Demo mode for simulated reps.</p><div className="privacy-note"><ShieldCheck size={17}/><span>Camera footage stays on this device and is never saved.</span></div><Button className="primary-action" onClick={startCamera}><Camera size={17}/> Allow camera & start</Button><Button variant="outline" className="secondary-action" onClick={() => { setShowCameraExplain(false); startWorkout(exercise); }}>Continue in Demo mode</Button></Sheet>}
       {confirmEnd && <ConfirmDialog onCancel={() => setConfirmEnd(false)} onConfirm={finishWorkout} />}
     </>}
