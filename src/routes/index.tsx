@@ -16,7 +16,7 @@ import repclashLogo from "@/assets/repclash-logo.jpg.asset.json";
 
 type Exercise = { name: string; muscles: string; best: string; difficulty: string; glyph: string; };
 type Workout = { id: string; exercise: string; reps: number; duration_seconds: number; calories: number; form_score: number; xp_earned: number; created_at: string; mode?: string };
-type Profile = { full_name: string; xp: number; streak: number; goal?: string | null; fitness_level?: string };
+type Profile = { full_name: string; xp: number; streak: number; goal?: string | null; fitness_level?: string; training_days?: number };
 const exercises: Exercise[] = [
   { name: "Squats", muscles: "Legs · Glutes", best: "47 reps", difficulty: "Beginner", glyph: "SQ" },
   { name: "Plank", muscles: "Core · Shoulders", best: "2:48", difficulty: "Beginner", glyph: "PL" },
@@ -56,14 +56,14 @@ export const Route = createFileRoute("/")({
 function RepclashApp() {
   const [tab, setTab] = useState<Tab>("Home");
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
-  const [profile, setProfile] = useState<Profile>({ full_name: "Maya", xp: 742, streak: 7, fitness_level: "Athlete" });
+  const [profile, setProfile] = useState<Profile>({ full_name: "Athlete", xp: 0, streak: 0, fitness_level: "Beginner", training_days: 3 });
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [exercise, setExercise] = useState("Squats");
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const [authView, setAuthView] = useState<"welcome" | "login" | "signup" | "onboarding" | null>("welcome");
   const [isDemo, setIsDemo] = useState(true);
-  const [challenge, setChallenge] = useState(32);
   const [selectedGoal, setSelectedGoal] = useState("Build Muscle");
+  const [trainingDays, setTrainingDays] = useState(3);
   const [authBusy, setAuthBusy] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -84,31 +84,53 @@ function RepclashApp() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!active || !data.session?.user) return;
-      const current = data.session.user;
-      setUser(current.email ? { id: current.id, email: current.email } : { id: current.id }); setIsDemo(false); setAuthView(null);
-      const { data: p } = await supabase.from("fitness_profiles").select("full_name,xp,streak,goal,fitness_level").eq("user_id", current.id).maybeSingle();
+    const loadAccount = async (current: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>) => {
+      setUser(current.email ? { id: current.id, email: current.email } : { id: current.id });
+      setIsDemo(false);
+      setAuthView((currentView) => currentView === "onboarding" ? currentView : null);
+      const { data: p, error: profileError } = await supabase.from("fitness_profiles").select("full_name,xp,streak,goal,fitness_level,training_days,preferences").eq("user_id", current.id).maybeSingle();
       if (!active) return;
-      if (p) setProfile(p as Profile);
-      else {
-        const display = current.user_metadata?.["full_name"] || current.email?.split("@")[0] || "Athlete";
-        const fresh = { full_name: display, xp: 0, streak: 0, fitness_level: "Beginner" };
-        setProfile(fresh);
-        await supabase.from("fitness_profiles").upsert({ user_id: current.id, full_name: display, fitness_level: "Beginner" });
+      let accountProfile = p;
+      if (!accountProfile && !profileError) {
+        const display = String(current.user_metadata?.["full_name"] || current.email?.split("@")[0] || "Athlete");
+        const { data: created, error: createError } = await supabase.from("fitness_profiles").insert({ user_id: current.id, full_name: display, fitness_level: "Beginner" }).select("full_name,xp,streak,goal,fitness_level,training_days,preferences").single();
+        if (!createError) accountProfile = created;
+        else {
+          const { data: existing } = await supabase.from("fitness_profiles").select("full_name,xp,streak,goal,fitness_level,training_days,preferences").eq("user_id", current.id).maybeSingle();
+          accountProfile = existing;
+        }
+      }
+      if (profileError) toast.error("Your profile couldn’t sync", { description: "Check your connection and try again." });
+      if (accountProfile) {
+        setProfile(accountProfile as Profile);
+        setFullName(accountProfile.full_name);
+        if (accountProfile.goal) setSelectedGoal(accountProfile.goal);
+        setTrainingDays(accountProfile.training_days);
+        const preferences = accountProfile.preferences as Partial<typeof settings> | null;
+        if (preferences) setSettings((currentSettings) => ({ ...currentSettings, ...preferences }));
       }
       const history: Workout[] = [];
       for (let offset = 0; active; offset += 500) {
         const { data: page, error } = await supabase.from("fitness_workouts").select("id,exercise,reps,duration_seconds,calories,form_score,xp_earned,created_at,mode").eq("user_id", current.id).order("created_at", { ascending: false }).range(offset, offset + 499);
-        if (error || !page) break;
+        if (error || !page) {
+          if (active) toast.error("Workout history couldn’t sync", { description: "Your saved sessions are still secure in your account." });
+          break;
+        }
         history.push(...page as Workout[]);
         if (page.length < 500) break;
       }
       if (active) setWorkouts(history);
+    };
+    supabase.auth.getSession().then(({ data }) => {
+      if (active && data.session?.user) void loadAccount(data.session.user);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") { setUser(null); setIsDemo(true); setAuthView("welcome"); }
-      if (session?.user) { setUser(session.user.email ? { id: session.user.id, email: session.user.email } : { id: session.user.id }); setIsDemo(false); setAuthView(null); }
+      if (event === "SIGNED_OUT") {
+        setUser(null); setIsDemo(true); setAuthView("welcome"); setWorkouts([]);
+        setProfile({ full_name: "Athlete", xp: 0, streak: 0, fitness_level: "Beginner", training_days: 3 });
+        setSettings({ voice: true, reminders: true, streak: true, privacy: true });
+      }
+      if (session?.user) window.setTimeout(() => { if (active) void loadAccount(session.user); }, 0);
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
@@ -156,18 +178,26 @@ function RepclashApp() {
         const saved = await recordWorkout({ data: { exercise, reps: result.reps, duration_seconds: result.duration_seconds, mode } });
         result = { id: saved.id, exercise: saved.exercise, reps: saved.reps, duration_seconds: saved.duration_seconds, calories: saved.calories, form_score: saved.form_score, xp_earned: saved.xp_earned, created_at: saved.created_at, mode: saved.mode };
         setProfile((p) => ({ ...p, xp: saved.profile_xp, streak: saved.profile_streak }));
-        setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
+        setWorkouts((items) => [result, ...items]);
         setDone(result);
       } catch {
         toast.error("Workout couldn’t be saved", { description: "Please try again when your connection is available." });
       }
     } else {
-      setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: Math.max(p.streak, 8) }));
-      setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
+      setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: getWorkoutStreak([result, ...workouts]) }));
+      setWorkouts((items) => [result, ...items]);
       try { localStorage.setItem("repverse-demo-workouts", JSON.stringify([result, ...JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]")])); } catch { /* demo remains usable when storage is full */ }
     }
   };
-  useEffect(() => { try { const cached = JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]") as Workout[]; if (cached.length && isDemo) setWorkouts(cached); } catch { /* ignore invalid demo cache */ } }, [isDemo]);
+  useEffect(() => {
+    if (!isDemo) return;
+    try {
+      const cached = JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]") as Workout[];
+      if (!cached.length) return;
+      setWorkouts(cached);
+      setProfile((current) => ({ ...current, xp: cached.reduce((sum, workout) => sum + workout.xp_earned, 0), streak: getWorkoutStreak(cached) }));
+    } catch { /* ignore invalid demo cache */ }
+  }, [isDemo]);
   const signIn = async (create: boolean) => {
     if (!authEmail || !authPassword) { toast.error("Add your email and password to continue."); return; }
     setAuthBusy(true);
@@ -175,37 +205,46 @@ function RepclashApp() {
     setAuthBusy(false);
     if (result.error) { toast.error(result.error.message); return; }
     if (create && !result.data.session) { toast.success("Check your inbox to confirm your email."); setAuthView("login"); return; }
-    if (create) setAuthView("onboarding"); else { setAuthView(null); setIsDemo(false); }
+    if (create) { setFullName(fullName || result.data.user?.user_metadata?.["full_name"] || ""); setAuthView("onboarding"); }
+    else { setAuthView(null); setIsDemo(false); }
   };
   const googleLogin = async (provider: "google" | "apple") => { const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin }); if (result.error) toast.error(result.error.message); };
   const saveOnboarding = async () => {
     if (!user) { setAuthView(null); return; }
-    const { error } = await supabase.from("fitness_profiles").update({ full_name: fullName || profile.full_name, goal: selectedGoal }).eq("user_id", user.id);
-    if (error) toast.error("Your profile couldn’t be saved yet."); else { setProfile((p) => ({ ...p, full_name: fullName || p.full_name, goal: selectedGoal })); setAuthView(null); }
+    const { error } = await supabase.from("fitness_profiles").update({ full_name: fullName || profile.full_name, goal: selectedGoal, training_days: trainingDays }).eq("user_id", user.id);
+    if (error) toast.error("Your profile couldn’t be saved yet."); else { setProfile((p) => ({ ...p, full_name: fullName || p.full_name, goal: selectedGoal, training_days: trainingDays })); setAuthView(null); }
+  };
+  const updateSettings = (next: typeof settings) => {
+    const previous = settings;
+    setSettings(next);
+    if (!user) return;
+    void supabase.from("fitness_profiles").update({ preferences: next }).eq("user_id", user.id).then(({ error }) => {
+      if (error) { setSettings(previous); toast.error("Your preferences couldn’t be saved."); }
+    });
   };
   const signOut = async () => { await supabase.auth.signOut(); setTab("Home"); };
   const displayName = profile.full_name || "Athlete";
 
   return <main className="app-shell">
     <ToasterSlot />
-    {authView ? <AuthScreen view={authView} setView={setAuthView} onDemo={() => { setAuthView(null); setIsDemo(true); toast.success("Demo mode ready", { description: "Your workouts are saved on this device." }); }} email={authEmail} setEmail={setAuthEmail} password={authPassword} setPassword={setAuthPassword} name={fullName} setName={setFullName} showPassword={showPassword} setShowPassword={setShowPassword} busy={authBusy} onSubmit={signIn} onSocial={googleLogin} goal={selectedGoal} setGoal={setSelectedGoal} onOnboarding={saveOnboarding} /> : <>
+    {authView ? <AuthScreen view={authView} setView={setAuthView} onDemo={() => { setAuthView(null); setIsDemo(true); toast.success("Demo mode ready", { description: "Your workouts are saved on this device." }); }} email={authEmail} setEmail={setAuthEmail} password={authPassword} setPassword={setAuthPassword} name={fullName} setName={setFullName} showPassword={showPassword} setShowPassword={setShowPassword} busy={authBusy} onSubmit={signIn} onSocial={googleLogin} goal={selectedGoal} setGoal={setSelectedGoal} trainingDays={trainingDays} setTrainingDays={setTrainingDays} onOnboarding={saveOnboarding} /> : <>
       {!workoutOpen && !done && <>
         <header className="topbar">
           <div className="brand-lockup"><span className="brand-mark">R</span><div><p className="brand-name">REPCLASH</p><p className="brand-sub">TRAINING CONSOLE</p></div></div>
-          <div className="top-actions"><span className="level-chip"><Sparkles size={13} />12</span><Button aria-label="Open profile" variant="ghost" size="icon" className="avatar-button" onClick={() => setTab("Settings")}>{displayName.slice(0, 1).toUpperCase()}</Button></div>
+          <div className="top-actions"><span className="level-chip"><Sparkles size={13} />{Math.floor(profile.xp / 200) + 1}</span><Button aria-label="Open profile" variant="ghost" size="icon" className="avatar-button" onClick={() => setTab("Settings")}>{displayName.slice(0, 1).toUpperCase()}</Button></div>
         </header>
         <div className="page-content" key={tab}>
-          {tab === "Home" && <HomeScreen name={displayName} profile={profile} exercises={exercises} challenge={challenge} onStart={startWorkout} onTab={setTab} workouts={workouts} />}
+          {tab === "Home" && <HomeScreen name={displayName} profile={profile} exercises={exercises} onStart={startWorkout} onTab={setTab} workouts={workouts} />}
           {tab === "Workout" && <WorkoutLibrary workouts={workouts} onStart={startWorkout} onHistory={() => setTab("Progress")} />}
           {tab === "Progress" && <ProgressScreen workouts={workouts} profile={profile} onStart={startWorkout} />}
-          {tab === "Awards" && <AwardsScreen workouts={workouts} />}
-          {tab === "Settings" && <SettingsScreen profile={profile} user={user} isDemo={isDemo} settings={settings} setSettings={setSettings} onLogin={() => setAuthView("welcome")} onSignOut={signOut} onWorkouts={() => setTab("Progress")} />}
+          {tab === "Awards" && <AwardsScreen workouts={workouts} profile={profile} />}
+          {tab === "Settings" && <SettingsScreen profile={profile} user={user} isDemo={isDemo} settings={settings} setSettings={updateSettings} onLogin={() => setAuthView("welcome")} onSignOut={signOut} onWorkouts={() => setTab("Progress")} />}
           <div className="page-title-accessible">{title}</div>
         </div>
         <BottomNav active={tab} onChange={setTab} />
       </>}
       {workoutOpen && <WorkoutSession exercise={exercise} reps={reps} elapsed={elapsed} mode={mode} liveCamera={liveCamera} paused={paused} muted={muted} videoRef={cameraRef} onPause={() => setPaused((p) => !p)} onRep={() => exercise !== "Plank" && setReps((n) => n + 1)} onEnd={() => setConfirmEnd(true)} onMute={() => setMuted((m) => !m)} onMode={() => { setMode("demo"); setLiveCamera(false); mediaRef.current?.getTracks().forEach((track) => track.stop()); mediaRef.current = null; toast.message("Demo mode enabled", { description: "Reps are simulated; form analysis is not active." }); }} />}
-      {done && <WorkoutResult result={done} onSave={() => { setDone(null); setTab("Home"); toast.success("Workout saved"); }} onAgain={() => startWorkout(done.exercise)} onClose={() => { setDone(null); setTab("Home"); }} />}
+      {done && <WorkoutResult result={done} streak={profile.streak} onSave={() => { setDone(null); setTab("Home"); toast.success("Workout saved"); }} onAgain={() => startWorkout(done.exercise)} onClose={() => { setDone(null); setTab("Home"); }} />}
       {showCameraExplain && <Sheet onClose={() => setShowCameraExplain(false)}><div className="sheet-handle"/><div className="permission-icon"><Camera size={23}/></div><h2>Camera stays with you.</h2><p className="sheet-copy">REPCLASH uses your camera preview for movement monitoring. Your video is not uploaded. Live pose analysis is not enabled in this demo; choose Demo mode for simulated reps.</p><div className="privacy-note"><ShieldCheck size={17}/><span>Camera footage stays on this device and is never saved.</span></div><Button className="primary-action" onClick={startCamera}><Camera size={17}/> Allow camera & start</Button><Button variant="outline" className="secondary-action" onClick={() => { setShowCameraExplain(false); startWorkout(exercise); }}>Continue in Demo mode</Button></Sheet>}
       {confirmEnd && <ConfirmDialog onCancel={() => setConfirmEnd(false)} onConfirm={finishWorkout} />}
     </>}
@@ -214,22 +253,38 @@ function RepclashApp() {
 
 function ToasterSlot() { return <div className="sr-only" aria-live="polite" />; }
 
-function AuthScreen(props: { view: "welcome" | "login" | "signup" | "onboarding" | null; setView: (v: "welcome" | "login" | "signup" | "onboarding" | null) => void; onDemo: () => void; email: string; setEmail: (v: string) => void; password: string; setPassword: (v: string) => void; name: string; setName: (v: string) => void; showPassword: boolean; setShowPassword: (v: boolean) => void; busy: boolean; onSubmit: (create: boolean) => void; onSocial: (provider: "google" | "apple") => void; goal: string; setGoal: (v: string) => void; onOnboarding: () => void }) {
+ function AuthScreen(props: { view: "welcome" | "login" | "signup" | "onboarding" | null; setView: (v: "welcome" | "login" | "signup" | "onboarding" | null) => void; onDemo: () => void; email: string; setEmail: (v: string) => void; password: string; setPassword: (v: string) => void; name: string; setName: (v: string) => void; showPassword: boolean; setShowPassword: (v: boolean) => void; busy: boolean; onSubmit: (create: boolean) => void; onSocial: (provider: "google" | "apple") => void; goal: string; setGoal: (v: string) => void; trainingDays: number; setTrainingDays: (v: number) => void; onOnboarding: () => void }) {
   const { view, setView } = props;
-   if (view === "onboarding") return <section className="auth-screen"><AuthAtmosphere/><div className="auth-logo"><span className="brand-mark large">R</span><span>REPCLASH</span></div><div className="auth-content"><span className="eyebrow">YOUR FIRST SESSION</span><h1>What are you<br/>training for?</h1><p>We’ll tune your plan to your goal.</p><div className="goal-grid">{["Build Muscle","Lose Weight","Improve Strength","Improve Endurance","Stay Active","General Fitness"].map((g) => <Button variant="outline" key={g} className={`goal-choice ${props.goal === g ? "selected" : ""}`} onClick={() => props.setGoal(g)}>{g}{props.goal === g && <Check size={16}/>}</Button>)}</div><div className="auth-input-label">TRAINING DAYS <select className="auth-input" defaultValue="3"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div><Button className="primary-action" onClick={props.onOnboarding}>Start Training <ChevronRight size={18}/></Button></div></section>;
+   if (view === "onboarding") return <section className="auth-screen"><AuthAtmosphere/><div className="auth-logo"><span className="brand-mark large">R</span><span>REPCLASH</span></div><div className="auth-content"><span className="eyebrow">YOUR FIRST SESSION</span><h1>What are you<br/>training for?</h1><p>We’ll tune your plan to your goal.</p><div className="goal-grid">{["Build Muscle","Lose Weight","Improve Strength","Improve Endurance","Stay Active","General Fitness"].map((g) => <Button variant="outline" key={g} className={`goal-choice ${props.goal === g ? "selected" : ""}`} onClick={() => props.setGoal(g)}>{g}{props.goal === g && <Check size={16}/>}</Button>)}</div><label className="auth-input-label">TRAINING DAYS <select className="auth-input" value={props.trainingDays} onChange={(event) => props.setTrainingDays(Number(event.target.value))}><option value={2}>2 days a week</option><option value={3}>3 days a week</option><option value={4}>4 days a week</option><option value={5}>5 days a week</option><option value={6}>6 days a week</option></select></label><Button className="primary-action" onClick={props.onOnboarding}>Start Training <ChevronRight size={18}/></Button></div></section>;
   if (view === "login" || view === "signup") return <section className="auth-screen"><AuthAtmosphere/><button className="back-action" onClick={() => setView("welcome")}><ArrowLeft size={18}/> Back</button><div className="auth-logo"><span className="brand-mark large">R</span><span>REPCLASH</span></div><div className="auth-content"><span className="eyebrow">{view === "login" ? "WELCOME BACK" : "START YOUR JOURNEY"}</span><h1>{view === "login" ? "Good to see you." : "Create your account."}</h1><p>Progress built one rep at a time.</p>{view === "signup" && <label className="auth-input-label">FULL NAME<input className="auth-input" autoComplete="name" value={props.name} onChange={(e) => props.setName(e.target.value)} placeholder="Your name" /></label>}<label className="auth-input-label">EMAIL ADDRESS<input className="auth-input" type="email" autoComplete="email" value={props.email} onChange={(e) => props.setEmail(e.target.value)} placeholder="you@example.com" /></label><label className="auth-input-label">PASSWORD<div className="password-field"><input className="auth-input" type={props.showPassword ? "text" : "password"} autoComplete={view === "login" ? "current-password" : "new-password"} value={props.password} onChange={(e) => props.setPassword(e.target.value)} placeholder="At least 8 characters"/><button aria-label="Show or hide password" onClick={() => props.setShowPassword(!props.showPassword)}>{props.showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button></div></label>{view === "signup" && <label className="auth-input-label">CONFIRM PASSWORD<input className="auth-input" type="password" autoComplete="new-password" placeholder="Enter password again" /></label>}{view === "login" && <button className="forgot-link" onClick={() => { void supabase.auth.resetPasswordForEmail(props.email).then(({ error }) => error ? toast.error(error.message) : toast.success("Password reset instructions sent.")); }}>Forgot password?</button>}<Button className="primary-action" disabled={props.busy} onClick={() => props.onSubmit(view === "signup")}>{props.busy ? "Please wait…" : view === "login" ? "Log in" : "Create account"}<ChevronRight size={18}/></Button>{view === "signup" && <p className="auth-small">By creating an account, you agree to our Terms and Privacy Policy.</p>}</div></section>;
    return <section className="auth-screen welcome-screen"><AuthAtmosphere/><div className="welcome-head"><div className="auth-logo"><span className="brand-mark large">R</span><span>REPCLASH</span></div><Button variant="ghost" className="skip-action" onClick={props.onDemo}>Skip <ChevronRight size={15}/></Button></div><div className="welcome-art"><img className="welcome-logo-image" src={repclashLogo.url} alt="REPCLASH logo: two athletes facing off around a lightning bolt" /></div><div className="welcome-copy"><span className="eyebrow">TRAIN SMARTER · MOVE BETTER</span><h1>Your camera.<br/>Your workout.<br/><em>Your progress.</em></h1><p>Build your strength, one rep at a time.</p><div className="motivation-prompt"><span>HEY, FEELING LOW?</span><strong>Lost today? Let’s understand why—and come back stronger.</strong></div></div><div className="welcome-actions"><Button className="primary-action" onClick={() => setView("signup")}>Create account <ChevronRight size={18}/></Button><Button variant="outline" className="secondary-action" onClick={() => setView("login")}>Log in with email</Button><div className="social-row"><Button variant="outline" className="social-action" onClick={() => props.onSocial("google")}>G <span>Google</span></Button><Button variant="outline" className="social-action" onClick={() => props.onSocial("apple")}>● <span>Apple</span></Button></div><Button variant="ghost" className="demo-link" onClick={props.onDemo}>Explore in demo mode</Button><div className="privacy-foot"><LockKeyhole size={12}/> Your camera. Your privacy. Your progress.</div></div></section>;
 }
 
 function AuthAtmosphere() { return <div className="auth-atmosphere" aria-hidden="true"><span className="atmosphere-grid"/><span className="atmosphere-plate atmosphere-plate-one"/><span className="atmosphere-plate atmosphere-plate-two"/><span className="atmosphere-plate atmosphere-plate-three"/><span className="atmosphere-trace"/></div>; }
 
-function HomeScreen({ name, profile, exercises: list, challenge, onStart, onTab, workouts }: { name: string; profile: Profile; exercises: Exercise[]; challenge: number; onStart: (n: string) => void; onTab: (t: Tab) => void; workouts: Workout[] }) {
-  const bars = [38, 62, 44, 81, 57, 72, 28];
+function HomeScreen({ name, profile, exercises: list, onStart, onTab, workouts }: { name: string; profile: Profile; exercises: Exercise[]; onStart: (n: string) => void; onTab: (t: Tab) => void; workouts: Workout[] }) {
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date();
+    day.setHours(0, 0, 0, 0);
+    day.setDate(day.getDate() - (6 - index));
+    const minutes = workouts.filter((workout) => {
+      const workoutDate = new Date(workout.created_at);
+      return workoutDate.getFullYear() === day.getFullYear() && workoutDate.getMonth() === day.getMonth() && workoutDate.getDate() === day.getDate();
+    }).reduce((sum, workout) => sum + Math.round(workout.duration_seconds / 60), 0);
+    return { label: day.toLocaleDateString("en", { weekday: "narrow" }), minutes, today: index === 6 };
+  });
+  const todayKey = new Date().toDateString();
+  const todaySquats = workouts.filter((workout) => workout.exercise === "Squats" && new Date(workout.created_at).toDateString() === todayKey).reduce((sum, workout) => sum + workout.reps, 0);
+  const todayPushups = workouts.filter((workout) => workout.exercise === "Push-ups" && new Date(workout.created_at).toDateString() === todayKey).reduce((sum, workout) => sum + workout.reps, 0);
+  const todayPlankSeconds = workouts.filter((workout) => workout.exercise === "Plank" && new Date(workout.created_at).toDateString() === todayKey).reduce((sum, workout) => sum + workout.duration_seconds, 0);
+  const todayMinutes = weekDays[6]?.minutes ?? 0;
+  const level = Math.floor(profile.xp / 200) + 1;
+  const activityMax = Math.max(30, ...weekDays.map((day) => day.minutes));
   return <div className="screen-enter"><div className="greeting-row"><div><p className="greeting">Good morning,</p><h1>{name} <span>✦</span></h1></div><button className="notification-button" aria-label="Notifications" onClick={() => toast.message("You’re all caught up.")}><Bell size={19}/><i/></button></div>
-    <section className="score-panel"><div className="score-ring"><div className="score-inner"><strong className="count-response" key={profile.xp}>{profile.xp}</strong><span>XP</span></div></div><div className="score-copy"><span className="eyebrow">TODAY’S SCORE</span><h2>Level 12 <small>· {profile.fitness_level || "Athlete"}</small></h2><div className="level-track-label"><span>LEVEL 13</span><span>{profile.xp % 200} / 200</span></div><div className="track"><i style={{ width: `${Math.max(18, (profile.xp % 200) / 2)}%` }}/></div></div></section>
-    <div className="dashboard-grid"><section className="mini-panel streak-panel"><span className="eyebrow">STREAK</span><div className="streak-number"><Flame size={22}/><strong className="count-response" key={profile.streak}>{profile.streak}</strong></div><span className="mini-caption">days alive</span></section><section className="mini-panel today-panel"><span className="eyebrow">TODAY’S WORKOUT</span><h3>Full Body</h3><p>25 min · 5 moves</p><Button className="mini-start" onClick={() => onStart("Squats")}>Start workout <ChevronRight size={15}/></Button></section></div>
-    <section className="content-section challenge-card"><div className="section-heading"><div><span className="eyebrow">DAILY CHALLENGE</span><p className="subline">Build your momentum today</p></div><span className="reward-chip">+200 XP</span></div><ChallengeLine label="Squats" value={challenge} max={50}/><ChallengeLine label="Push-ups" value={18} max={30}/><ChallengeLine label="Plank" value={40} max={60} unit="s"/></section>
-    <section className="content-section activity-panel"><div className="section-heading"><span className="eyebrow">WEEKLY ACTIVITY</span><span className="mini-caption">MIN / DAY</span></div><div className="activity-chart">{bars.map((height, i) => <div className="activity-day" key={i}><span className={`activity-bar ${i === 3 ? "today" : ""}`} style={{ height: `${height}%`, animationDelay: `${i * 45}ms` }}/><span>{["M","T","W","T","F","S","S"][i]}</span></div>)}</div></section>
+    <section className="score-panel"><div className="score-ring"><div className="score-inner"><strong className="count-response" key={profile.xp}>{profile.xp}</strong><span>XP</span></div></div><div className="score-copy"><span className="eyebrow">TOTAL EXPERIENCE</span><h2>Level {level} <small>· {profile.fitness_level || "Beginner"}</small></h2><div className="level-track-label"><span>LEVEL {level + 1}</span><span>{profile.xp % 200} / 200</span></div><div className="track"><i style={{ width: `${Math.max(0, (profile.xp % 200) / 2)}%` }}/></div></div></section>
+    <div className="dashboard-grid"><section className="mini-panel streak-panel"><span className="eyebrow">STREAK</span><div className="streak-number"><Flame size={22}/><strong className="count-response" key={profile.streak}>{profile.streak}</strong></div><span className="mini-caption">days alive</span></section><section className="mini-panel today-panel"><span className="eyebrow">TODAY’S WORKOUT</span><h3>{todayMinutes ? `${todayMinutes} min logged` : "Ready when you are"}</h3><p>{workouts.filter((workout) => new Date(workout.created_at).toDateString() === todayKey).length} sessions saved today</p><Button className="mini-start" onClick={() => onStart("Squats")}>Start workout <ChevronRight size={15}/></Button></section></div>
+    <section className="content-section challenge-card"><div className="section-heading"><div><span className="eyebrow">TODAY’S MOVEMENT</span><p className="subline">Your saved training so far</p></div></div><ChallengeLine label="Squats" value={todaySquats} max={50}/><ChallengeLine label="Push-ups" value={todayPushups} max={30}/><ChallengeLine label="Plank" value={todayPlankSeconds} max={60} unit="s"/></section>
+    <section className="content-section activity-panel"><div className="section-heading"><span className="eyebrow">WEEKLY ACTIVITY</span><span className="mini-caption">MIN / DAY</span></div><div className="activity-chart">{weekDays.map((day, index) => <div className="activity-day" key={`${day.label}-${index}`}><span className={`activity-bar ${day.today ? "today" : ""}`} style={{ height: `${Math.max(4, (day.minutes / activityMax) * 100)}%`, animationDelay: `${index * 45}ms` }} title={`${day.minutes} minutes`}/><span>{day.label}</span></div>)}</div></section>
     <ExerciseRecords workouts={workouts} onStart={onStart} onSeeAll={() => onTab("Progress")} compact />
     <div className="dashboard-grid metric-grid"><MetricTile label="TOTAL REPS" value={workouts.reduce((a, w) => a + w.reps, 0).toLocaleString()} note="saved sessions"/><MetricTile label="WORKOUTS" value={`${workouts.length}`} note="sessions saved"/><MetricTile label="CALORIES" value={workouts.reduce((a, w) => a + w.calories, 0).toLocaleString()} note="estimated kcal"/><MetricTile label="PUSH-UPS" value={exerciseRecord(workouts, "Push-ups").total.toLocaleString()} note="saved reps"/></div>
     <section className="content-section quick-section"><div className="section-heading"><span className="eyebrow">QUICK WORKOUT</span><button className="text-link" onClick={() => onTab("Workout")}>See all <ChevronRight size={14}/></button></div><div className="quick-list">{list.slice(0, 5).map((ex, i) => <button key={ex.name} className="quick-item" onClick={() => onStart(ex.name)}><span className={`exercise-glyph tone-${i % 4}`}>{ex.glyph}</span><span className="quick-name">{ex.name}</span><span className="quick-play"><Play size={13} fill="currentColor"/></span></button>)}</div></section>
@@ -278,7 +333,24 @@ function ProgressScreen({ workouts, profile, onStart }: { workouts: Workout[]; p
 }
 function HistoryItem({ workout }: { workout: Workout }) { return <article className="history-row"><span className="exercise-glyph tone-0">{(exercises.find((ex) => ex.name === workout.exercise)?.glyph) || "EX"}</span><div className="history-main"><h3>{workout.exercise}</h3><p>{new Date(workout.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · {formatTime(workout.duration_seconds)}</p></div><div className="history-value"><strong>{workout.reps ? `${workout.reps} reps` : formatTime(workout.duration_seconds)}</strong><span>+{workout.xp_earned} XP</span></div></article>; }
 
-function AwardsScreen({ workouts }: { workouts: Workout[] }) { const count = 10 + workouts.length; const badges = [{ title: "First Workout", category: "BRONZE", desc: "Show up for the first time", icon: "01", progress: Math.min(1, count / 1) }, { title: "100 Reps", category: "BRONZE", desc: "Stack up one hundred reps", icon: "100", progress: Math.min(1, 72 / 100) }, { title: "7 Day Streak", category: "BRONZE", desc: "Keep your momentum alive", icon: "7D", progress: 1 }, { title: "1,000 Reps", category: "SILVER", desc: "A thousand strong", icon: "1K", progress: .68 }, { title: "30 Day Streak", category: "SILVER", desc: "A month of showing up", icon: "30", progress: .24 }, { title: "10,000 Reps", category: "GOLD", desc: "A milestone worth celebrating", icon: "10K", progress: .13 }, { title: "100 Workouts", category: "GOLD", desc: "Consistency at its finest", icon: "100", progress: count / 100 }, { title: "Elite Performer", category: "PLATINUM", desc: "A rare level of commitment", icon: "★", progress: .08 }]; return <div className="screen-enter"><div className="page-heading"><span className="eyebrow">EARNED, NEVER GIVEN</span><h1>Proof of your<br/><em>progress.</em></h1><p>Every milestone starts with showing up.</p></div><section className="medal-progress"><div className="medal-symbol">✦</div><div className="medal-copy"><span className="eyebrow">YOUR TIER</span><h2>Bronze <small>· Rising</small></h2><p>{count} of 30 workouts to Silver</p><div className="track"><i style={{ width: `${Math.min(100, count / 30 * 100)}%` }}/></div></div></section><div className="section-heading list-heading"><span className="eyebrow">MILESTONES</span><span className="mini-caption">{badges.filter((b) => b.progress >= 1).length} UNLOCKED</span></div><div className="badge-list">{badges.map((badge) => <article key={badge.title} className={`badge-card tier-${badge.category.toLowerCase()}`}><div className="badge-icon">{badge.icon}</div><div className="badge-info"><div className="badge-heading"><h3>{badge.title}</h3><span>{badge.category}</span></div><p>{badge.desc}</p><div className="track"><i style={{ width: `${Math.min(100, badge.progress * 100)}%` }}/></div></div>{badge.progress >= 1 && <Check className="badge-check" size={17}/>}</article>)}</div></div>; }
+function AwardsScreen({ workouts, profile }: { workouts: Workout[]; profile: Profile }) {
+  const count = workouts.length;
+  const totalReps = workouts.reduce((sum, workout) => sum + workout.reps, 0);
+  const streak = profile.streak;
+  const badges = [
+    { title: "First Workout", category: "BRONZE", desc: "Show up for the first time", icon: "01", progress: Math.min(1, count / 1) },
+    { title: "100 Reps", category: "BRONZE", desc: "Stack up one hundred reps", icon: "100", progress: Math.min(1, totalReps / 100) },
+    { title: "7 Day Streak", category: "BRONZE", desc: "Keep your momentum alive", icon: "7D", progress: Math.min(1, streak / 7) },
+    { title: "1,000 Reps", category: "SILVER", desc: "A thousand strong", icon: "1K", progress: Math.min(1, totalReps / 1000) },
+    { title: "30 Day Streak", category: "SILVER", desc: "A month of showing up", icon: "30", progress: Math.min(1, streak / 30) },
+    { title: "10,000 Reps", category: "GOLD", desc: "A milestone worth celebrating", icon: "10K", progress: Math.min(1, totalReps / 10000) },
+    { title: "100 Workouts", category: "GOLD", desc: "Consistency at its finest", icon: "100", progress: Math.min(1, count / 100) },
+    { title: "Elite Performer", category: "PLATINUM", desc: "A rare level of commitment", icon: "★", progress: Math.min(1, profile.xp / 10000) },
+  ];
+  const tier = count >= 100 ? "Gold" : count >= 30 ? "Silver" : "Bronze";
+  const nextTierAt = count >= 100 ? 100 : count >= 30 ? 100 : 30;
+  return <div className="screen-enter"><div className="page-heading"><span className="eyebrow">EARNED, NEVER GIVEN</span><h1>Proof of your<br/><em>progress.</em></h1><p>Every milestone starts with showing up.</p></div><section className="medal-progress"><div className="medal-symbol">✦</div><div className="medal-copy"><span className="eyebrow">YOUR TIER</span><h2>{tier} <small>· {count} workouts</small></h2><p>{count} of {nextTierAt} workouts to {count >= 100 ? "Platinum" : count >= 30 ? "Gold" : "Silver"}</p><div className="track"><i style={{ width: `${Math.min(100, count / nextTierAt * 100)}%` }}/></div></div></section><div className="section-heading list-heading"><span className="eyebrow">MILESTONES</span><span className="mini-caption">{badges.filter((badge) => badge.progress >= 1).length} UNLOCKED</span></div><div className="badge-list">{badges.map((badge) => <article key={badge.title} className={`badge-card tier-${badge.category.toLowerCase()}`}><div className="badge-icon">{badge.icon}</div><div className="badge-info"><div className="badge-heading"><h3>{badge.title}</h3><span>{badge.category}</span></div><p>{badge.desc}</p><div className="track"><i style={{ width: `${Math.min(100, badge.progress * 100)}%` }}/></div></div>{badge.progress >= 1 && <Check className="badge-check" size={17}/>}</article>)}</div></div>;
+}
 
 function SettingsScreen({ profile, user, isDemo, settings, setSettings, onLogin, onSignOut, onWorkouts }: { profile: Profile; user: { id: string; email?: string } | null; isDemo: boolean; settings: { voice: boolean; reminders: boolean; streak: boolean; privacy: boolean }; setSettings: (s: { voice: boolean; reminders: boolean; streak: boolean; privacy: boolean }) => void; onLogin: () => void; onSignOut: () => void; onWorkouts: () => void }) { const toggle = (key: keyof typeof settings) => setSettings({ ...settings, [key]: !settings[key] }); return <div className="screen-enter"><div className="page-heading"><span className="eyebrow">YOUR SPACE</span><h1>Settings &<br/><em>your profile.</em></h1><p>Make REPCLASH work your way.</p></div><section className="profile-panel"><div className="profile-avatar">{profile.full_name.slice(0, 1).toUpperCase()}</div><div className="profile-info"><h2>{profile.full_name}</h2><p>{user?.email || "Demo athlete"}</p><span className="profile-level"><Sparkles size={12}/> LEVEL 12 · {profile.fitness_level || "ATHLETE"}</span></div><ChevronRight size={18}/></section><section className="settings-group"><h3>ACCOUNT</h3>{isDemo ? <SettingsRow icon={<UserRound/>} label="Create your account" detail="Sync your progress across devices" action={<ChevronRight size={16}/>} onClick={onLogin}/> : <SettingsRow icon={<Mail/>} label="Email address" detail={user?.email || "Signed in"} action={<Check size={16}/>} onClick={() => toast.message("Your account email is verified.")}/>}<SettingsRow icon={<History/>} label="Workout history" detail="Review every session" action={<ChevronRight size={16}/>} onClick={onWorkouts}/><SettingsRow icon={<LogOut/>} label={isDemo ? "Demo mode" : "Sign out"} detail={isDemo ? "Saved on this device" : "Sign out of REPCLASH"} action={<ChevronRight size={16}/>} onClick={isDemo ? onLogin : onSignOut}/></section><section className="settings-group"><h3>WORKOUT PREFERENCES</h3><SettingsRow icon={<Volume2/>} label="Voice feedback" detail="Live form cues" action={<Switch checked={settings.voice} onCheckedChange={() => toggle("voice")}/>} onClick={() => toggle("voice")}/><SettingsRow icon={<Clock3/>} label="Rest timer" detail="60 seconds between sets" action={<ChevronRight size={16}/>} onClick={() => toast.message("Rest timer set to 60 seconds.")}/><SettingsRow icon={<Activity/>} label="Rep sensitivity" detail="Balanced movement threshold" action={<ChevronRight size={16}/>} onClick={() => toast.message("Rep sensitivity: Balanced.")}/></section><section className="settings-group"><h3>REMINDERS</h3><SettingsRow icon={<Bell/>} label="Daily workout" detail="A gentle nudge to move" action={<Switch checked={settings.reminders} onCheckedChange={() => toggle("reminders")}/>} onClick={() => toggle("reminders")}/><SettingsRow icon={<Flame/>} label="Streak reminder" detail="Keep your momentum alive" action={<Switch checked={settings.streak} onCheckedChange={() => toggle("streak")}/>} onClick={() => toggle("streak")}/></section><section className="settings-group"><h3>PRIVACY & SUPPORT</h3><SettingsRow icon={<ShieldCheck/>} label="Camera privacy" detail="Video stays on your device" action={<ChevronRight size={16}/>} onClick={() => toast.message("Camera video is never uploaded or saved.")}/><SettingsRow icon={<CircleHelp/>} label="Help & support" detail="We’re here to help" action={<ChevronRight size={16}/>} onClick={() => toast.message("Contact support at hello@repverse.app")}/><SettingsRow icon={<LockKeyhole/>} label="Privacy policy" detail="Your data belongs to you" action={<ChevronRight size={16}/>} onClick={() => toast.message("REPCLASH never stores camera footage.")}/></section><p className="version-line">REPCLASH · VERSION 1.0.0 · BUILT TO KEEP YOU MOVING</p></div>; }
 function SettingsRow({ icon, label, detail, action, onClick }: { icon: React.ReactNode; label: string; detail: string; action: React.ReactNode; onClick: () => void }) { return <button className="settings-row" onClick={onClick}><span className="settings-icon">{icon}</span><span className="settings-copy"><b>{label}</b><small>{detail}</small></span><span className="settings-action" onClick={(e) => e.stopPropagation()}>{action}</span></button>; }
