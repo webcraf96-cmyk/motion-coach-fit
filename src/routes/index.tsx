@@ -16,7 +16,7 @@ import repclashLogo from "@/assets/repclash-logo.jpg.asset.json";
 
 type Exercise = { name: string; muscles: string; best: string; difficulty: string; glyph: string; };
 type Workout = { id: string; exercise: string; reps: number; duration_seconds: number; calories: number; form_score: number; xp_earned: number; created_at: string; mode?: string };
-type Profile = { full_name: string; xp: number; streak: number; goal?: string | null; fitness_level?: string };
+type Profile = { full_name: string; xp: number; streak: number; goal?: string | null; fitness_level?: string; training_days?: number };
 const exercises: Exercise[] = [
   { name: "Squats", muscles: "Legs · Glutes", best: "47 reps", difficulty: "Beginner", glyph: "SQ" },
   { name: "Plank", muscles: "Core · Shoulders", best: "2:48", difficulty: "Beginner", glyph: "PL" },
@@ -56,14 +56,14 @@ export const Route = createFileRoute("/")({
 function RepclashApp() {
   const [tab, setTab] = useState<Tab>("Home");
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
-  const [profile, setProfile] = useState<Profile>({ full_name: "Maya", xp: 742, streak: 7, fitness_level: "Athlete" });
+  const [profile, setProfile] = useState<Profile>({ full_name: "Athlete", xp: 0, streak: 0, fitness_level: "Beginner", training_days: 3 });
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [exercise, setExercise] = useState("Squats");
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const [authView, setAuthView] = useState<"welcome" | "login" | "signup" | "onboarding" | null>("welcome");
   const [isDemo, setIsDemo] = useState(true);
-  const [challenge, setChallenge] = useState(32);
   const [selectedGoal, setSelectedGoal] = useState("Build Muscle");
+  const [trainingDays, setTrainingDays] = useState(3);
   const [authBusy, setAuthBusy] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -84,31 +84,51 @@ function RepclashApp() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!active || !data.session?.user) return;
-      const current = data.session.user;
-      setUser(current.email ? { id: current.id, email: current.email } : { id: current.id }); setIsDemo(false); setAuthView(null);
-      const { data: p } = await supabase.from("fitness_profiles").select("full_name,xp,streak,goal,fitness_level").eq("user_id", current.id).maybeSingle();
+    const loadAccount = async (current: NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]>) => {
+      setUser(current.email ? { id: current.id, email: current.email } : { id: current.id });
+      setIsDemo(false);
+      setAuthView(null);
+      const { data: p, error: profileError } = await supabase.from("fitness_profiles").select("full_name,xp,streak,goal,fitness_level,training_days,preferences").eq("user_id", current.id).maybeSingle();
       if (!active) return;
-      if (p) setProfile(p as Profile);
-      else {
-        const display = current.user_metadata?.["full_name"] || current.email?.split("@")[0] || "Athlete";
-        const fresh = { full_name: display, xp: 0, streak: 0, fitness_level: "Beginner" };
-        setProfile(fresh);
-        await supabase.from("fitness_profiles").upsert({ user_id: current.id, full_name: display, fitness_level: "Beginner" });
+      let accountProfile = p;
+      if (!accountProfile && !profileError) {
+        const display = String(current.user_metadata?.["full_name"] || current.email?.split("@")[0] || "Athlete");
+        const { data: created, error: createError } = await supabase.from("fitness_profiles").insert({ user_id: current.id, full_name: display, fitness_level: "Beginner" }).select("full_name,xp,streak,goal,fitness_level,training_days,preferences").single();
+        if (!createError) accountProfile = created;
+        else {
+          const { data: existing } = await supabase.from("fitness_profiles").select("full_name,xp,streak,goal,fitness_level,training_days,preferences").eq("user_id", current.id).maybeSingle();
+          accountProfile = existing;
+        }
+      }
+      if (profileError) toast.error("Your profile couldn’t sync", { description: "Check your connection and try again." });
+      if (accountProfile) {
+        setProfile(accountProfile as Profile);
+        setTrainingDays(accountProfile.training_days);
+        const preferences = accountProfile.preferences as Partial<typeof settings> | null;
+        if (preferences) setSettings((currentSettings) => ({ ...currentSettings, ...preferences }));
       }
       const history: Workout[] = [];
       for (let offset = 0; active; offset += 500) {
         const { data: page, error } = await supabase.from("fitness_workouts").select("id,exercise,reps,duration_seconds,calories,form_score,xp_earned,created_at,mode").eq("user_id", current.id).order("created_at", { ascending: false }).range(offset, offset + 499);
-        if (error || !page) break;
+        if (error || !page) {
+          if (active) toast.error("Workout history couldn’t sync", { description: "Your saved sessions are still secure in your account." });
+          break;
+        }
         history.push(...page as Workout[]);
         if (page.length < 500) break;
       }
       if (active) setWorkouts(history);
+    };
+    supabase.auth.getSession().then(({ data }) => {
+      if (active && data.session?.user) void loadAccount(data.session.user);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") { setUser(null); setIsDemo(true); setAuthView("welcome"); }
-      if (session?.user) { setUser(session.user.email ? { id: session.user.id, email: session.user.email } : { id: session.user.id }); setIsDemo(false); setAuthView(null); }
+      if (event === "SIGNED_OUT") {
+        setUser(null); setIsDemo(true); setAuthView("welcome"); setWorkouts([]);
+        setProfile({ full_name: "Athlete", xp: 0, streak: 0, fitness_level: "Beginner", training_days: 3 });
+        setSettings({ voice: true, reminders: true, streak: true, privacy: true });
+      }
+      if (session?.user) window.setTimeout(() => { if (active) void loadAccount(session.user); }, 0);
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
@@ -156,14 +176,14 @@ function RepclashApp() {
         const saved = await recordWorkout({ data: { exercise, reps: result.reps, duration_seconds: result.duration_seconds, mode } });
         result = { id: saved.id, exercise: saved.exercise, reps: saved.reps, duration_seconds: saved.duration_seconds, calories: saved.calories, form_score: saved.form_score, xp_earned: saved.xp_earned, created_at: saved.created_at, mode: saved.mode };
         setProfile((p) => ({ ...p, xp: saved.profile_xp, streak: saved.profile_streak }));
-        setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
+        setWorkouts((items) => [result, ...items]);
         setDone(result);
       } catch {
         toast.error("Workout couldn’t be saved", { description: "Please try again when your connection is available." });
       }
     } else {
       setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: Math.max(p.streak, 8) }));
-      setWorkouts((items) => [result, ...items]); setChallenge((n) => Math.min(50, n + result.reps));
+      setWorkouts((items) => [result, ...items]);
       try { localStorage.setItem("repverse-demo-workouts", JSON.stringify([result, ...JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]")])); } catch { /* demo remains usable when storage is full */ }
     }
   };
@@ -180,26 +200,34 @@ function RepclashApp() {
   const googleLogin = async (provider: "google" | "apple") => { const result = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin }); if (result.error) toast.error(result.error.message); };
   const saveOnboarding = async () => {
     if (!user) { setAuthView(null); return; }
-    const { error } = await supabase.from("fitness_profiles").update({ full_name: fullName || profile.full_name, goal: selectedGoal }).eq("user_id", user.id);
-    if (error) toast.error("Your profile couldn’t be saved yet."); else { setProfile((p) => ({ ...p, full_name: fullName || p.full_name, goal: selectedGoal })); setAuthView(null); }
+    const { error } = await supabase.from("fitness_profiles").update({ full_name: fullName || profile.full_name, goal: selectedGoal, training_days: trainingDays }).eq("user_id", user.id);
+    if (error) toast.error("Your profile couldn’t be saved yet."); else { setProfile((p) => ({ ...p, full_name: fullName || p.full_name, goal: selectedGoal, training_days: trainingDays })); setAuthView(null); }
+  };
+  const updateSettings = (next: typeof settings) => {
+    const previous = settings;
+    setSettings(next);
+    if (!user) return;
+    void supabase.from("fitness_profiles").update({ preferences: next }).eq("user_id", user.id).then(({ error }) => {
+      if (error) { setSettings(previous); toast.error("Your preferences couldn’t be saved."); }
+    });
   };
   const signOut = async () => { await supabase.auth.signOut(); setTab("Home"); };
   const displayName = profile.full_name || "Athlete";
 
   return <main className="app-shell">
     <ToasterSlot />
-    {authView ? <AuthScreen view={authView} setView={setAuthView} onDemo={() => { setAuthView(null); setIsDemo(true); toast.success("Demo mode ready", { description: "Your workouts are saved on this device." }); }} email={authEmail} setEmail={setAuthEmail} password={authPassword} setPassword={setAuthPassword} name={fullName} setName={setFullName} showPassword={showPassword} setShowPassword={setShowPassword} busy={authBusy} onSubmit={signIn} onSocial={googleLogin} goal={selectedGoal} setGoal={setSelectedGoal} onOnboarding={saveOnboarding} /> : <>
+    {authView ? <AuthScreen view={authView} setView={setAuthView} onDemo={() => { setAuthView(null); setIsDemo(true); toast.success("Demo mode ready", { description: "Your workouts are saved on this device." }); }} email={authEmail} setEmail={setAuthEmail} password={authPassword} setPassword={setAuthPassword} name={fullName} setName={setFullName} showPassword={showPassword} setShowPassword={setShowPassword} busy={authBusy} onSubmit={signIn} onSocial={googleLogin} goal={selectedGoal} setGoal={setSelectedGoal} trainingDays={trainingDays} setTrainingDays={setTrainingDays} onOnboarding={saveOnboarding} /> : <>
       {!workoutOpen && !done && <>
         <header className="topbar">
           <div className="brand-lockup"><span className="brand-mark">R</span><div><p className="brand-name">REPCLASH</p><p className="brand-sub">TRAINING CONSOLE</p></div></div>
-          <div className="top-actions"><span className="level-chip"><Sparkles size={13} />12</span><Button aria-label="Open profile" variant="ghost" size="icon" className="avatar-button" onClick={() => setTab("Settings")}>{displayName.slice(0, 1).toUpperCase()}</Button></div>
+          <div className="top-actions"><span className="level-chip"><Sparkles size={13} />{Math.floor(profile.xp / 200) + 1}</span><Button aria-label="Open profile" variant="ghost" size="icon" className="avatar-button" onClick={() => setTab("Settings")}>{displayName.slice(0, 1).toUpperCase()}</Button></div>
         </header>
         <div className="page-content" key={tab}>
-          {tab === "Home" && <HomeScreen name={displayName} profile={profile} exercises={exercises} challenge={challenge} onStart={startWorkout} onTab={setTab} workouts={workouts} />}
+          {tab === "Home" && <HomeScreen name={displayName} profile={profile} exercises={exercises} onStart={startWorkout} onTab={setTab} workouts={workouts} />}
           {tab === "Workout" && <WorkoutLibrary workouts={workouts} onStart={startWorkout} onHistory={() => setTab("Progress")} />}
           {tab === "Progress" && <ProgressScreen workouts={workouts} profile={profile} onStart={startWorkout} />}
           {tab === "Awards" && <AwardsScreen workouts={workouts} />}
-          {tab === "Settings" && <SettingsScreen profile={profile} user={user} isDemo={isDemo} settings={settings} setSettings={setSettings} onLogin={() => setAuthView("welcome")} onSignOut={signOut} onWorkouts={() => setTab("Progress")} />}
+          {tab === "Settings" && <SettingsScreen profile={profile} user={user} isDemo={isDemo} settings={settings} setSettings={updateSettings} onLogin={() => setAuthView("welcome")} onSignOut={signOut} onWorkouts={() => setTab("Progress")} />}
           <div className="page-title-accessible">{title}</div>
         </div>
         <BottomNav active={tab} onChange={setTab} />
