@@ -15,7 +15,7 @@ import { recordWorkout } from "@/lib/workouts.functions";
 import repclashLogo from "@/assets/repclash-logo.jpg.asset.json";
 
 type Exercise = { name: string; muscles: string; best: string; difficulty: string; glyph: string; };
-type Workout = { id: string; exercise: string; reps: number; duration_seconds: number; calories: number; form_score: number; xp_earned: number; created_at: string; mode?: string };
+type Workout = { id: string; exercise: string; reps: number; duration_seconds: number; calories: number; form_score: number; xp_earned: number; created_at: string; mode?: string; saved?: boolean };
 type Profile = { full_name: string; xp: number; streak: number; goal?: string | null; fitness_level?: string; training_days?: number };
 const exercises: Exercise[] = [
   { name: "Squats", muscles: "Legs · Glutes", best: "47 reps", difficulty: "Beginner", glyph: "SQ" },
@@ -146,7 +146,7 @@ function RepclashApp() {
         setProfile({ full_name: "Athlete", xp: 0, streak: 0, fitness_level: "Beginner", training_days: 3 });
         setSettings({ voice: true, reminders: true, streak: true, privacy: true });
       }
-      if (session?.user) window.setTimeout(() => { if (active) void loadAccount(session.user); }, 0);
+      if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) window.setTimeout(() => { if (active) void loadAccount(session.user); }, 0);
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
@@ -188,20 +188,23 @@ function RepclashApp() {
   };
   const finishWorkout = async () => {
     let result: Workout = { id: crypto.randomUUID(), exercise, reps: exercise === "Plank" ? 0 : reps, duration_seconds: Math.max(1, elapsed), calories: Math.max(12, Math.round(elapsed * 0.19)), form_score: mode === "demo" ? 92 : 0, xp_earned: Math.max(30, Math.round(elapsed * 0.55) + reps * 2), created_at: new Date().toISOString(), mode };
-    setWorkoutOpen(false); setConfirmEnd(false); setDone(result); setLiveCamera(false); mediaRef.current?.getTracks().forEach((track) => track.stop()); mediaRef.current = null;
+    setWorkoutOpen(false); setConfirmEnd(false); setDone(user ? null : { ...result, saved: true }); setLiveCamera(false); mediaRef.current?.getTracks().forEach((track) => track.stop()); mediaRef.current = null;
     if (user) {
       try {
         const saved = await recordWorkout({ data: { exercise, reps: result.reps, duration_seconds: result.duration_seconds, mode } });
-        result = { id: saved.id, exercise: saved.exercise, reps: saved.reps, duration_seconds: saved.duration_seconds, calories: saved.calories, form_score: saved.form_score, xp_earned: saved.xp_earned, created_at: saved.created_at, mode: saved.mode };
+        result = { id: saved.id, exercise: saved.exercise, reps: saved.reps, duration_seconds: saved.duration_seconds, calories: saved.calories, form_score: saved.form_score, xp_earned: saved.xp_earned, created_at: saved.created_at, mode: saved.mode, saved: true };
         setProfile((p) => ({ ...p, xp: saved.profile_xp, streak: saved.profile_streak }));
         setWorkouts((items) => [result, ...items]);
         setDone(result);
       } catch {
+        setDone({ ...result, saved: false });
         toast.error("Workout couldn’t be saved", { description: "Please try again when your connection is available." });
       }
     } else {
       setProfile((p) => ({ ...p, xp: p.xp + result.xp_earned, streak: getWorkoutStreak([result, ...workouts]) }));
       setWorkouts((items) => [result, ...items]);
+      result = { ...result, saved: true };
+      setDone(result);
       try { localStorage.setItem("repverse-demo-workouts", JSON.stringify([result, ...JSON.parse(localStorage.getItem("repverse-demo-workouts") || "[]")])); } catch { /* demo remains usable when storage is full */ }
     }
   };
@@ -238,6 +241,26 @@ function RepclashApp() {
       if (error) { setSettings(previous); toast.error("Your preferences couldn’t be saved."); }
     });
   };
+  const saveFinishedWorkout = async () => {
+    if (!done) return;
+    if (!done.saved && user) {
+      try {
+        const saved = await recordWorkout({ data: { exercise: done.exercise, reps: done.reps, duration_seconds: done.duration_seconds, mode: done.mode === "live" ? "live" : "demo" } });
+        const confirmed: Workout = { id: saved.id, exercise: saved.exercise, reps: saved.reps, duration_seconds: saved.duration_seconds, calories: saved.calories, form_score: saved.form_score, xp_earned: saved.xp_earned, created_at: saved.created_at, mode: saved.mode, saved: true };
+        setProfile((current) => ({ ...current, xp: saved.profile_xp, streak: saved.profile_streak }));
+        setWorkouts((items) => [confirmed, ...items]);
+        setDone(null);
+        setTab("Home");
+        toast.success("Workout saved to your account.");
+      } catch {
+        toast.error("Workout couldn’t be saved", { description: "Check your connection and try again." });
+      }
+      return;
+    }
+    setDone(null);
+    setTab("Home");
+    toast.success("Workout saved");
+  };
   const signOut = async () => { await supabase.auth.signOut(); setTab("Home"); };
   const displayName = profile.full_name || "Athlete";
 
@@ -260,7 +283,7 @@ function RepclashApp() {
         <BottomNav active={tab} onChange={setTab} />
       </>}
       {workoutOpen && <WorkoutSession exercise={exercise} reps={reps} elapsed={elapsed} mode={mode} liveCamera={liveCamera} paused={paused} muted={muted} videoRef={cameraRef} onPause={() => setPaused((p) => !p)} onRep={() => exercise !== "Plank" && setReps((n) => n + 1)} onEnd={() => setConfirmEnd(true)} onMute={() => setMuted((m) => !m)} onMode={() => { setMode("demo"); setLiveCamera(false); mediaRef.current?.getTracks().forEach((track) => track.stop()); mediaRef.current = null; toast.message("Demo mode enabled", { description: "Reps are simulated; form analysis is not active." }); }} />}
-      {done && <WorkoutResult result={done} streak={profile.streak} onSave={() => { setDone(null); setTab("Home"); toast.success("Workout saved"); }} onAgain={() => startWorkout(done.exercise)} onClose={() => { setDone(null); setTab("Home"); }} />}
+      {done && <WorkoutResult result={done} streak={profile.streak} onSave={saveFinishedWorkout} onAgain={() => startWorkout(done.exercise)} onClose={() => { setDone(null); setTab("Home"); }} />}
       {showCameraExplain && <Sheet onClose={() => setShowCameraExplain(false)}><div className="sheet-handle"/><div className="permission-icon"><Camera size={23}/></div><h2>Camera stays with you.</h2><p className="sheet-copy">REPCLASH uses your camera preview for movement monitoring. Your video is not uploaded. Live pose analysis is not enabled in this demo; choose Demo mode for simulated reps.</p><div className="privacy-note"><ShieldCheck size={17}/><span>Camera footage stays on this device and is never saved.</span></div><Button className="primary-action" onClick={startCamera}><Camera size={17}/> Allow camera & start</Button><Button variant="outline" className="secondary-action" onClick={() => { setShowCameraExplain(false); startWorkout(exercise); }}>Continue in Demo mode</Button></Sheet>}
       {confirmEnd && <ConfirmDialog onCancel={() => setConfirmEnd(false)} onConfirm={finishWorkout} />}
     </>}
