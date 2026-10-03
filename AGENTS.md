@@ -10,3 +10,5 @@
 <!-- LOVABLE:END -->
 
 - Compute per-exercise totals and best single-session reps from saved workout history rather than display seed numbers, so records remain truthful in demo and signed-in views.
+- Keep account profile and workout reads scoped through the authenticated browser client with row-level ownership rules, while workout scoring and XP/streak writes stay in database triggers; this preserves per-user access boundaries and server-derived progress.
+- Store user-facing workout preferences on the owned fitness profile and keep payment enrollment disabled until a real payment provider and checkout flow are configured; this keeps preferences synced without implying that plans can be purchased.
