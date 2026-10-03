@@ -6,3 +6,5 @@
 - [x] Reduce the opening logo and remove the green rectangular glow while preserving the background.
 - [x] Give changing progress numbers a rep-like response and subtly refine the app surfaces.
 - [x] Verify opening, login, and demo-to-progress flow on a small phone.
+- [x] Persist account profile details, workout preferences, workout history, and server-derived XP/streak in Lovable Cloud.
+- [ ] Verify authenticated account sync end-to-end; preview has no signed-in test account available.
