@@ -39,33 +39,33 @@
 }
 
 :root {
-  --radius: 1rem;
-  --background: oklch(0.115 0.012 35);
+  --radius: 1.15rem;
+  --background: oklch(0.14 0.014 285);
   --foreground: oklch(0.95 0.012 70);
-  --card: oklch(0.155 0.016 35);
+  --card: oklch(0.19 0.02 285);
   --card-foreground: oklch(0.95 0.012 70);
-  --popover: oklch(0.155 0.016 35);
+  --popover: oklch(0.19 0.02 285);
   --popover-foreground: oklch(0.95 0.012 70);
-  --primary: oklch(0.72 0.2 28);
-  --primary-foreground: oklch(0.12 0.018 35);
-  --secondary: oklch(0.2 0.02 42);
+  --primary: oklch(0.8 0.13 62);
+  --primary-foreground: oklch(0.16 0.02 60);
+  --secondary: oklch(0.23 0.022 285);
   --secondary-foreground: oklch(0.91 0.015 70);
-  --muted: oklch(0.2 0.02 42);
-  --muted-foreground: oklch(0.65 0.028 60);
-  --accent: oklch(0.82 0.19 132);
-  --accent-foreground: oklch(0.13 0.02 42);
-  --destructive: oklch(0.65 0.2 25);
+  --muted: oklch(0.23 0.022 285);
+  --muted-foreground: oklch(0.68 0.025 75);
+  --accent: oklch(0.84 0.18 145);
+  --accent-foreground: oklch(0.14 0.02 145);
+  --destructive: oklch(0.68 0.15 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.28 0.025 45);
-  --input: oklch(0.23 0.022 42);
-  --ring: oklch(0.72 0.2 28);
-  --brand: oklch(0.72 0.2 28);
-  --panel: oklch(0.155 0.016 35);
-  --panel-raised: oklch(0.205 0.022 43);
-  --panel-line: oklch(0.28 0.025 45);
-  --success: oklch(0.82 0.19 132);
-  --warning: oklch(0.82 0.16 83);
-  --danger: oklch(0.71 0.18 20);
+  --border: oklch(0.32 0.025 285);
+  --input: oklch(0.26 0.024 285);
+  --ring: oklch(0.8 0.13 62);
+  --brand: oklch(0.8 0.13 62);
+  --panel: oklch(0.19 0.02 285);
+  --panel-raised: oklch(0.25 0.026 285);
+  --panel-line: oklch(0.32 0.025 285);
+  --success: oklch(0.84 0.18 145);
+  --warning: oklch(0.84 0.15 88);
+  --danger: oklch(0.72 0.14 25);
   color-scheme: dark;
 }
 
@@ -530,3 +530,117 @@ button { -webkit-tap-highlight-color: transparent; }
   .score-panel, .mini-panel, .content-section, .workout-feature, .exercise-card, .badge-card, .medal-progress, .profile-panel, .plan-card, .record-card { transition: none!important; }
   .score-panel:hover, .mini-panel:hover, .content-section:hover, .workout-feature:hover, .exercise-card:hover, .badge-card:hover, .medal-progress:hover, .profile-panel:hover, .plan-card:hover, .record-card:hover { transform: none!important; }
 }
+
+/* ===== Glassmorphism × Claymorphism skin =====
+   Frosted translucent surfaces over ambient glows, with soft clay
+   depth (rounded forms, inner light, cushioned shadows) on touch points. */
+
+/* Ambient color fields behind everything so the blur has light to refract. */
+body {
+  background:
+    radial-gradient(ellipse 90% 55% at 85% -5%, color-mix(in oklab, var(--brand), transparent 82%), transparent 60%),
+    radial-gradient(ellipse 80% 50% at -10% 35%, color-mix(in oklab, var(--accent), transparent 90%), transparent 62%),
+    radial-gradient(ellipse 70% 45% at 60% 105%, oklch(0.45 0.1 300 / 0.14), transparent 65%),
+    var(--background);
+  background-attachment: fixed;
+}
+.app-shell { background: transparent; }
+
+/* --- Glass surfaces: cards, panels, sheets, nav --- */
+.score-panel, .mini-panel, .content-section, .workout-feature, .exercise-card,
+.history-row, .badge-card, .medal-progress, .profile-panel, .plan-card,
+.period-control, .session-stats > div, .result-stats > div, .session-feedback,
+.camera-label, .camera-info, .art-score, .art-chip, .coach-card, .privacy-note,
+.motivation-prompt, .filter-pill, .empty-state, .settings-icon, .notification-button {
+  background: color-mix(in oklab, var(--panel), transparent 42%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border-color: color-mix(in oklab, var(--foreground), transparent 90%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--foreground), transparent 90%),
+    inset 0 -1px 0 color-mix(in oklab, var(--background), transparent 70%),
+    0 14px 30px -18px color-mix(in oklab, var(--background), transparent 20%);
+}
+.score-panel, .content-section, .plan-card, .workout-feature, .medal-progress, .profile-panel { border-radius: 22px; }
+.mini-panel, .exercise-card, .history-row, .badge-card { border-radius: 18px; }
+
+.topbar {
+  background: color-mix(in oklab, var(--background), transparent 45%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border-bottom-color: color-mix(in oklab, var(--foreground), transparent 92%);
+}
+.bottom-nav {
+  background: color-mix(in oklab, var(--background), transparent 38%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border-top-color: color-mix(in oklab, var(--foreground), transparent 90%);
+}
+.bottom-sheet, .confirm-sheet {
+  background: color-mix(in oklab, var(--panel), transparent 22%);
+  backdrop-filter: blur(26px) saturate(160%);
+  border-color: color-mix(in oklab, var(--foreground), transparent 88%);
+  border-radius: 28px 28px 0 0;
+}
+.score-inner { background: color-mix(in oklab, var(--background), transparent 30%); backdrop-filter: blur(8px); }
+.camera-stage { border-color: color-mix(in oklab, var(--foreground), transparent 90%); }
+
+/* --- Clay touch points: buttons, chips, glyphs, inputs --- */
+.primary-action, .mini-start, .feature-start, .session-finish, .plan-action-featured {
+  border-radius: 16px!important;
+  background: linear-gradient(160deg, color-mix(in oklab, var(--brand), white 14%), var(--brand) 55%, color-mix(in oklab, var(--brand), black 12%))!important;
+  box-shadow:
+    inset 0 2px 3px color-mix(in oklab, white, transparent 72%),
+    inset 0 -4px 8px color-mix(in oklab, black, transparent 78%),
+    0 10px 22px -10px color-mix(in oklab, var(--brand), transparent 35%)!important;
+  text-shadow: 0 1px 1px color-mix(in oklab, black, transparent 80%);
+}
+.primary-action:active, .mini-start:active, .feature-start:active, .session-finish:active, .plan-action-featured:active {
+  box-shadow: inset 0 3px 8px color-mix(in oklab, black, transparent 72%)!important;
+}
+.secondary-action, .plan-action, .pause-button, .social-action {
+  border-radius: 16px!important;
+  background: color-mix(in oklab, var(--panel-raised), transparent 40%)!important;
+  backdrop-filter: blur(14px);
+  border-color: color-mix(in oklab, var(--foreground), transparent 90%)!important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--foreground), transparent 88%),
+    inset 0 -3px 6px color-mix(in oklab, var(--background), transparent 65%),
+    0 8px 18px -12px color-mix(in oklab, var(--background), transparent 30%)!important;
+}
+.exercise-glyph, .brand-mark, .level-chip, .avatar-button, .settings-icon,
+.badge-icon, .feature-mark, .coach-icon, .record-emblem, .quick-play,
+.medal-symbol, .permission-icon, .confirm-icon, .profile-avatar, .result-burst {
+  box-shadow:
+    inset 0 2px 3px color-mix(in oklab, white, transparent 82%),
+    inset 0 -3px 6px color-mix(in oklab, black, transparent 82%),
+    0 6px 14px -8px color-mix(in oklab, var(--background), transparent 35%);
+}
+.auth-input, .goal-choice {
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--panel), transparent 45%);
+  backdrop-filter: blur(12px);
+  border-color: color-mix(in oklab, var(--foreground), transparent 90%);
+  box-shadow:
+    inset 0 2px 5px color-mix(in oklab, var(--background), transparent 55%),
+    inset 0 -1px 0 color-mix(in oklab, var(--foreground), transparent 92%);
+}
+.auth-input:focus { border-color: color-mix(in oklab, var(--brand), transparent 40%); box-shadow: inset 0 2px 5px color-mix(in oklab, var(--background), transparent 55%), 0 0 0 3px color-mix(in oklab, var(--brand), transparent 82%); }
+.track { background: color-mix(in oklab, var(--background), transparent 45%); box-shadow: inset 0 1px 3px color-mix(in oklab, var(--background), transparent 40%); }
+.track i { box-shadow: 0 0 8px color-mix(in oklab, var(--brand), transparent 55%); }
+.score-ring { box-shadow: 0 12px 26px -12px color-mix(in oklab, var(--brand), transparent 45%), inset 0 0 0 1px color-mix(in oklab, var(--foreground), transparent 92%); }
+
+/* Record cards: keep the 3D identity, soften into clay-glass. */
+.record-card {
+  background: linear-gradient(155deg, color-mix(in oklab, var(--record-color), var(--panel) 82%), color-mix(in oklab, var(--panel), transparent 25%) 62%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-color: color-mix(in oklab, var(--record-color), transparent 72%);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white, transparent 88%),
+    0 9px 0 -5px color-mix(in oklab, var(--record-color), var(--background) 84%),
+    0 15px 22px -17px var(--record-color);
+}
+
+/* Charts read as frosted bars. */
+.activity-bar, .tall-bar { backdrop-filter: blur(4px); box-shadow: inset 0 1px 0 color-mix(in oklab, white, transparent 80%); }
+
+/* Rep counter gets a soft clay pedestal glow. */
+.rep-display > span { text-shadow: 0 4px 18px color-mix(in oklab, var(--brand), transparent 60%); }
