@@ -8,3 +8,6 @@
 - [x] Verify opening, login, and demo-to-progress flow on a small phone.
 - [x] Persist account profile details, workout preferences, workout history, and server-derived XP/streak in Lovable Cloud.
 - [ ] Verify authenticated account sync end-to-end; preview has no signed-in test account available.
+- [ ] Expand the exercise library with 20+ researched bodyweight movements and keep workout validation aligned.
+- [ ] Add separate opt-in sharing for fitness goal and recent workout history, then generate a personalized plan through Lovable AI on the server.
+- [ ] Verify exercise browsing, privacy controls, planner flow, gateway response, and build; report authenticated testing blockers.
